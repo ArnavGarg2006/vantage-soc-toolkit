@@ -1,0 +1,30 @@
+title: Encoded or Obfuscated PowerShell Command Line
+id: 436e4c8b-0c69-5da6-9506-39af25bb3b13
+status: experimental
+description: Detects PowerShell invoked with an encoded/obfuscated command-line flag
+  (-enc, -e, -EncodedCommand) — a common technique to hide the actual command from
+  casual log review. Matches the heuristic in process_monitor.py.
+author: python-for-cybersecurity project
+date: 2026/08/27
+references:
+- https://attack.mitre.org/techniques/T1027/
+tags:
+- attack.defense-evasion
+- attack.t1027
+- attack.execution
+- attack.t1059.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith: \powershell.exe
+  selection_flag:
+    CommandLine|contains:
+    - -enc
+    - -EncodedCommand
+    - ' -e '
+  condition: selection_image and selection_flag
+falsepositives:
+- Legitimate scripts that pass base64-encoded arguments
+level: high

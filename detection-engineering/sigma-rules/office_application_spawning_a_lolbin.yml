@@ -1,0 +1,38 @@
+title: Office Application Spawning a LOLBin
+id: c182595d-34ba-55e0-ba8c-94795fdc2218
+status: experimental
+description: Detects a Microsoft Office application (Word, Excel, Outlook) spawning
+  a known LOLBin as a child process — the classic macro-malware execution pattern.
+  Matches the heuristic in process_monitor.py.
+author: python-for-cybersecurity project
+date: 2026/08/27
+references:
+- https://attack.mitre.org/techniques/T1566/001/
+tags:
+- attack.execution
+- attack.t1204.002
+- attack.initial-access
+- attack.t1566.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith:
+    - \winword.exe
+    - \excel.exe
+    - \outlook.exe
+  selection_child:
+    Image|endswith:
+    - \powershell.exe
+    - \cmd.exe
+    - \wscript.exe
+    - \cscript.exe
+    - \mshta.exe
+    - \certutil.exe
+    - \regsvr32.exe
+    - \rundll32.exe
+  condition: selection_parent and selection_child
+falsepositives:
+- Rare legitimate document automation workflows
+level: high
