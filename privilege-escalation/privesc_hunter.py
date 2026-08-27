@@ -29,10 +29,13 @@ Usage:
 import os
 import sys
 import winreg
+from pathlib import Path
 
 import wmi
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 USER_WRITABLE_HINTS = ["\\appdata\\", "\\temp\\", "\\users\\public\\", "\\downloads\\"]
 
@@ -53,6 +56,8 @@ def check_unquoted_paths(services):
     else:
         for name, path in findings:
             print(f"  ⚠️  {name}: {path}")
+            emit(source="privesc_hunter", technique_id="T1574.009", severity="MEDIUM",
+                 message=f"Unquoted service path: {name} -> {path}")
     return findings
 
 
@@ -63,6 +68,8 @@ def check_always_install_elevated():
     print(f"  HKCU: {hkcu}, HKLM: {hklm}")
     if hkcu == 1 and hklm == 1:
         print("  ⚠️  BOTH set to 1 — any user can install MSI packages with SYSTEM privileges.")
+        emit(source="privesc_hunter", technique_id="T1548.002", severity="HIGH",
+             message="AlwaysInstallElevated set in both HKCU and HKLM")
         return True
     print("  Not vulnerable (needs both keys set to 1).")
     return False
@@ -92,6 +99,8 @@ def check_writable_service_locations(services):
     else:
         for name, path in findings:
             print(f"  ⚠️  {name}: {path}")
+            emit(source="privesc_hunter", technique_id="T1574.009", severity="MEDIUM",
+                 message=f"Service running from user-writable-looking location: {name} -> {path}")
     return findings
 
 

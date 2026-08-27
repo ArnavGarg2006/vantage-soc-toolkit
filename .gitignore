@@ -12,6 +12,9 @@ persistence/demo_log.txt
 collection/scratch/
 shield-legitimize/scratch/
 
+# Event bus log - append-only telemetry regenerated each collector run
+event-bus/events.jsonl
+
 # PyInstaller build output - rebuild with packaging/build.sh equivalent command;
 # the .exe itself is large binary, regenerate rather than commit
 packaging/build/

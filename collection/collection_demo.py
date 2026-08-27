@@ -25,6 +25,8 @@ import time
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 SCRATCH_DIR = Path(__file__).resolve().parent / "scratch"
 STAGING_DIR = SCRATCH_DIR / "staged"
@@ -51,6 +53,8 @@ def find_interesting_files():
         if path.is_file() and any(pat in path.name.lower() for pat in SENSITIVE_PATTERNS):
             found.append(path)
             print(f"  Found: {path.name}")
+            emit(source="collection_demo", technique_id="T1005", severity="LOW",
+                 message=f"Sensitive-looking filename found: {path.name}")
     print(f"  ({len(found)}/{len(INTERESTING_FILENAMES)} files matched — the decoys correctly did not)")
     return found
 
@@ -74,8 +78,9 @@ def hunt_staging_behavior():
         return False
     count = len(list(STAGING_DIR.glob("*")))
     if count >= 3:
-        print(f"  ⚠️  MEDIUM: {count} files appeared in a single directory ({STAGING_DIR.name}) — "
-              f"consistent with collection staging ahead of exfiltration.")
+        msg = f"{count} files appeared in a single directory ({STAGING_DIR.name}) — consistent with staging ahead of exfiltration"
+        print(f"  ⚠️  MEDIUM: {msg}")
+        emit(source="collection_demo", technique_id="T1074.001", severity="MEDIUM", message=msg)
         return True
     print(f"  Only {count} file(s) — below the burst threshold.")
     return False

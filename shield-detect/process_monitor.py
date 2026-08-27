@@ -34,10 +34,13 @@ import ipaddress
 import sys
 import time
 import subprocess
+from pathlib import Path
 
 import psutil
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 LOLBINS = {"powershell.exe", "cmd.exe", "wscript.exe", "cscript.exe",
            "mshta.exe", "certutil.exe", "regsvr32.exe", "rundll32.exe"}
@@ -141,6 +144,7 @@ def monitor(duration):
                 alert = f"[{severity}] PID {pid} ({info.get('name')}): {reason}"
                 print(f"  {alert}")
                 alerts.append(alert)
+                emit(source="process_monitor", technique_id="T1059", severity=severity, message=reason)
         before = after
 
     print(f"\n{len(alerts)} alert(s) in {duration}s window.")
@@ -180,6 +184,7 @@ def self_test():
             for severity, reason in findings:
                 print(f"  [{severity}] PID {pid} ({info.get('name')}): {reason}")
                 found_process_alert = True
+                emit(source="process_monitor", technique_id="T1059", severity=severity, message=reason)
                 if "Combined signal" in reason:
                     found_network_alert = True
         if found_network_alert:

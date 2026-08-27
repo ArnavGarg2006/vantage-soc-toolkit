@@ -30,6 +30,8 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 SCRATCH_DIR = Path(__file__).parent / "scratch"
 KEY_FILE = Path(__file__).parent / "recovery_key.bin"
@@ -90,8 +92,9 @@ def hunt_mass_file_change(before, after):
 
     new_ext_count = after.get(ENCRYPTED_EXT, 0)
     if new_ext_count >= DUMMY_FILE_COUNT * 0.8:
-        print(f"  ⚠️  HIGH: {new_ext_count} files changed to '{ENCRYPTED_EXT}' in this pass — "
-              f"mass extension change is a strong ransomware behavioral signature.")
+        msg = f"{new_ext_count} files changed to '{ENCRYPTED_EXT}' in this pass — mass extension change, ransomware signature"
+        print(f"  ⚠️  HIGH: {msg}")
+        emit(source="ransomware_sim", technique_id="T1486", severity="HIGH", message=msg)
     else:
         print("  No mass extension-change pattern detected.")
 

@@ -25,6 +25,8 @@ from pathlib import Path
 import psutil
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 # name (lowercase) -> directories it's legitimately allowed to run from
 EXPECTED_LOCATIONS = {
@@ -53,8 +55,9 @@ def scan():
         allowed = EXPECTED_LOCATIONS[name]
         if not any(exe.startswith(loc) for loc in allowed):
             findings.append((p.info["pid"], p.info["name"], p.info["exe"]))
-            print(f"  ⚠️  HIGH: PID {p.info['pid']} named '{p.info['name']}' running from "
-                  f"'{p.info['exe']}' — not one of {allowed}")
+            msg = f"PID {p.info['pid']} named '{p.info['name']}' running from '{p.info['exe']}' — not one of {allowed}"
+            print(f"  ⚠️  HIGH: {msg}")
+            emit(source="masquerade_detector", technique_id="T1036.005", severity="HIGH", message=msg)
 
     if not findings:
         print("  No masquerading processes detected — every matched name is running from its expected location.")

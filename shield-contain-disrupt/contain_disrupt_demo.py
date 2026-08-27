@@ -25,10 +25,13 @@ Usage:
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import psutil
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 FIREWALL_RULE_NAME = "PyCyberDemo_ContainDisrupt_TESTNET_Block"
 TEST_NET_CIDR = "203.0.113.0/24"  # RFC 5737 TEST-NET-3 - reserved for documentation, never real
@@ -50,6 +53,8 @@ def process_contain_disrupt_demo():
     print(f"  Status after suspend: {p.status()}")
     if p.status() == psutil.STATUS_STOPPED:
         print("  ✓ Contained — process is paused, still exists, did no further work while suspended.")
+        emit(source="contain_disrupt_demo", technique_id="DTE0011", severity="INFO",
+             message=f"PID {proc.pid} suspended (contained)")
 
     print("\n--- Resuming (proving containment is reversible) ---")
     p.resume()
@@ -64,6 +69,8 @@ def process_contain_disrupt_demo():
     except psutil.TimeoutExpired:
         p.kill()
         print(f"  Process {proc.pid} force-killed after terminate timeout.")
+    emit(source="contain_disrupt_demo", technique_id="DTE0021", severity="INFO",
+         message=f"PID {proc.pid} terminated (disrupted)")
 
 
 def run_netsh(args):
@@ -88,6 +95,8 @@ def network_disrupt_demo():
     rc, out, _ = run_netsh(["advfirewall", "firewall", "show", "rule", f"name={FIREWALL_RULE_NAME}"])
     if FIREWALL_RULE_NAME in out:
         print("  ✓ Verified: rule exists in the firewall.")
+        emit(source="contain_disrupt_demo", technique_id="DTE0021", severity="INFO",
+             message=f"Firewall rule blocking {TEST_NET_CIDR} added and verified (network disrupt)")
     else:
         print("  Could not verify rule presence.")
 

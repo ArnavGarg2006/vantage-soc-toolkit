@@ -27,6 +27,8 @@ from pathlib import Path
 import psutil
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 SCRATCH_DIR = Path(__file__).resolve().parent / "scratch"
 HONEYTOKEN = SCRATCH_DIR / "aws_backup_credentials.txt"
@@ -59,8 +61,9 @@ def watch_for_access(duration, known_pids):
                 p = psutil.Process(pid)
                 for f in p.open_files():
                     if Path(f.path).resolve() == HONEYTOKEN:
-                        print(f"  ⚠️  CRITICAL: PID {pid} ({p.name()}) accessed the honeytoken — "
-                              f"there is no legitimate reason for ANY process to open this file.")
+                        msg = f"PID {pid} ({p.name()}) accessed the honeytoken — no legitimate reason for ANY process to open this file"
+                        print(f"  ⚠️  CRITICAL: {msg}")
+                        emit(source="honeytoken_watcher", technique_id="DTE0013", severity="HIGH", message=msg)
                         caught = True
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue

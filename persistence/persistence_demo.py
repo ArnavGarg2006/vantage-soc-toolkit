@@ -24,8 +24,11 @@ import argparse
 import os
 import sys
 import winreg
+from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 RUN_KEY_PATH = r"Software\Microsoft\Windows\CurrentVersion\Run"
 DEMO_VALUE_NAME = "PyCyberDemo_DO_NOT_LEAVE_RUNNING"
@@ -100,6 +103,9 @@ def hunt_persistence():
                             name, value, _ = winreg.EnumValue(key, i)
                             flag = " ⚠️  demo artifact" if name == DEMO_VALUE_NAME else ""
                             print(f"  {hive_name}\\{subkey}\\{name} = {value}{flag}")
+                            if name == DEMO_VALUE_NAME:
+                                emit(source="persistence_demo", technique_id="T1547.001", severity="MEDIUM",
+                                     message=f"Autostart entry {hive_name}\\{subkey}\\{name} flagged as demo artifact")
                             i += 1
                         except OSError:
                             break

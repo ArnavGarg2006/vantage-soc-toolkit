@@ -21,10 +21,13 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 import requests
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 HOST = "127.0.0.1"
 PORT = 8766
@@ -53,11 +56,17 @@ class ExfilHandler(BaseHTTPRequestHandler):
         cc_matches = CC_PATTERN.findall(body)
         ssn_matches = SSN_PATTERN.findall(body)
         if cc_matches:
-            findings.append(("HIGH", f"card-number-shaped pattern in outbound body: {cc_matches}"))
+            msg = f"card-number-shaped pattern in outbound body: {cc_matches}"
+            findings.append(("HIGH", msg))
+            emit(source="exfil_demo", technique_id="T1041", severity="HIGH", message=msg)
         if ssn_matches:
-            findings.append(("HIGH", f"SSN-shaped pattern in outbound body: {ssn_matches}"))
+            msg = f"SSN-shaped pattern in outbound body: {ssn_matches}"
+            findings.append(("HIGH", msg))
+            emit(source="exfil_demo", technique_id="T1041", severity="HIGH", message=msg)
         if length > 500:
-            findings.append(("LOW", f"unusually large outbound POST body ({length} bytes)"))
+            msg = f"unusually large outbound POST body ({length} bytes)"
+            findings.append(("LOW", msg))
+            emit(source="exfil_demo", technique_id="T1041", severity="LOW", message=msg)
 
         self.send_response(200)
         self.end_headers()

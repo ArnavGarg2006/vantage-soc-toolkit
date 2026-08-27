@@ -24,10 +24,13 @@ import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 import requests
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 HOST = "127.0.0.1"  # loopback only - never reachable from outside this machine
 PORT = 8765
@@ -92,9 +95,9 @@ def detect_beaconing(timestamps, regularity_threshold=0.15):
           f"coefficient of variation: {cv:.3f}")
 
     if cv < regularity_threshold:
-        print(f"  ⚠️  HIGH: coefficient of variation {cv:.3f} < {regularity_threshold} threshold — "
-              f"this timing pattern is characteristic of automated C2 beaconing, "
-              f"not organic traffic.")
+        msg = f"coefficient of variation {cv:.3f} < {regularity_threshold} threshold — automated C2 beaconing pattern"
+        print(f"  ⚠️  HIGH: {msg}")
+        emit(source="beacon_demo", technique_id="T1071.001", severity="HIGH", message=msg)
     else:
         print(f"  Timing looks irregular enough to be organic traffic (cv >= {regularity_threshold}).")
 

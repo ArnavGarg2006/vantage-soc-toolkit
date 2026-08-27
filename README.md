@@ -324,14 +324,74 @@ python shield-channel-facilitate/honeypot_listener.py --self-test
 python credential-access/credential_access_demo.py --demo-realistic
 ```
 
+## Phase 5 — pulling 22 separate scripts into one pane of glass (in progress)
+
+Every module through Phase 4 works, but each one only ever printed its own alerts
+to its own terminal — there was no single place that showed what the whole project
+was catching at once. That's the specific gap Phase 5 closes, one piece at a time.
+
+### Central event bus + live dashboard — built and verified
+
+| Module | What it does |
+|---|---|
+| [`event-bus/collector.py`](event-bus/collector.py) | Localhost-only (`127.0.0.1:8790`) HTTP collector — any detector can POST an alert to it. Serves a live, auto-refreshing dashboard at `/dashboard` (polls `/events.json` every 2s) and appends everything to `events.jsonl` so a session survives a restart |
+| [`event_bus_client.py`](event_bus_client.py) | The shared `emit(source, technique_id, severity, message)` client every detector imports. Lives at the project root (not inside `event-bus/`) specifically because a hyphenated directory name can't be `import`ed as a package — the same constraint the scorecard already worked around with `importlib.util` for the Phase 2 modules. Fails silently in ~0.4s if no collector is running: this is strictly additive telemetry, never a dependency of the detection logic itself |
+
+**15 detector modules wired in** at their actual alert points — every module from
+Phase 1 through Phase 4 that produces a real finding: `process_monitor`,
+`credential_access_demo`, `beacon_demo`, `ransomware_sim`, `persistence_demo`,
+`privesc_hunter`, `masquerade_detector`, `lan_attack_surface`, `domain_age_checker`,
+`phishing_url_analyzer`, `collection_demo`, `exfil_demo`, `honeytoken_watcher`,
+`honeypot_listener`, `contain_disrupt_demo`.
+
+**Verified output**: started the collector, then ran `masquerade_detector.py
+--self-test`, `honeytoken_watcher.py --self-test`, and `beacon_demo.py` as three
+genuinely separate process invocations — no shared state, no shortcuts. Queried
+`/events.json` afterward and all three alerts had actually arrived over real HTTP,
+each correctly labeled with its source module, technique ID, and severity:
+
+```
+3 events
+HIGH masquerade_detector T1036.005 PID 17448 named 'svchost.exe' running from '...'
+HIGH honeytoken_watcher  DTE0013   PID 19396 (python.exe) accessed the honeytoken...
+HIGH beacon_demo         T1071.001 coefficient of variation 0.007 < 0.15 threshold...
+```
+
+```bash
+python event-bus/collector.py                    # start it, then open
+                                                    # http://127.0.0.1:8790/dashboard
+python event-bus/collector.py --self-test         # starts, emits 2 fake events
+                                                    # over real HTTP, verifies both
+                                                    # landed, shuts down, cleans up
+
+# in any other terminal, once the collector is running:
+python shield-detect/process_monitor.py --self-test
+python defense-evasion/masquerade_detector.py --self-test
+# ...any wired detector — its alerts appear on the dashboard within ~2s
+```
+
+### Still queued for Phase 5
+
+- **ETW-based real-time detection** — replace the polling loops that hit the
+  12.7s full-system-scan ceiling (documented in Phase 4's Credential Access
+  section) with real Windows Event Tracing subscriptions for file/process
+  events — kernel-level visibility instead of user-mode polling.
+- **Attack-chain scorecard** — extend `scorecard/attack_simulation_scorecard.py`
+  beyond single techniques to full multi-stage chains (e.g. Persistence →
+  Credential Access → Exfiltration run back-to-back), scoring whether the whole
+  chain is caught end-to-end.
+- **Unified HTML report generator** — one command that runs the scorecard +
+  Sigma export + Navigator export and produces a single shareable HTML report.
+
 ## What's left (genuinely open, not roadmap filler)
 
 - Contain/Disrupt's network half still needs an elevated terminal to verify
   end-to-end — genuinely blocked from this non-interactive session, not skipped;
   run the command in the Phase 4 section above from an admin terminal to close it.
+- The three Phase 5 items listed above are designed but not yet built.
 - Everything else on the original ATT&CK/Shield list has at least one working,
-  verified module now. Real gaps that remain are depth, not breadth: none of this
-  is a full EDR (no kernel-level hooks, no persistence across reboots for the
-  detectors themselves, no central logging/alerting pipeline tying the modules
-  together) — that's a deliberate scope boundary of a portfolio project, not an
-  oversight.
+  verified module now, and the event bus now gives them one shared dashboard.
+  Real gaps that remain are depth, not breadth: none of this is a full EDR (no
+  kernel-level hooks yet, no persistence across reboots for the detectors
+  themselves) — that's a deliberate scope boundary of a portfolio project, not
+  an oversight.

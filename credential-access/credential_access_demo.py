@@ -32,6 +32,8 @@ from pathlib import Path
 import psutil
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 # .resolve() matters: __file__ can be relative depending on how the script is
 # invoked, but psutil.open_files() always returns absolute paths - comparing
@@ -133,8 +135,9 @@ def watch_dummy_store(duration=5, target_pid=None):
         try:
             for f in p.open_files():
                 if Path(f.path).resolve() == DUMMY_DB:
-                    print(f"  ⚠️  HIGH: PID {p.pid} ({p.name()}) has the credential "
-                          f"store open and is not the process that created it.")
+                    msg = f"PID {p.pid} ({p.name()}) has the credential store open and is not the process that created it."
+                    print(f"  ⚠️  HIGH: {msg}")
+                    emit(source="credential_access_demo", technique_id="T1555.003", severity="HIGH", message=msg)
                     caught = True
         except (psutil.AccessDenied, psutil.NoSuchProcess):
             pass
@@ -182,8 +185,12 @@ def hunt_credential_access():
             print("  No process currently has it open.")
         else:
             for pid, name in holders:
-                flag = "" if browser.lower() in name.lower() else "  ⚠️  NOT the browser itself"
+                is_browser = browser.lower() in name.lower()
+                flag = "" if is_browser else "  ⚠️  NOT the browser itself"
                 print(f"  Open by PID {pid} ({name}){flag}")
+                if not is_browser:
+                    emit(source="credential_access_demo", technique_id="T1555.003", severity="HIGH",
+                         message=f"PID {pid} ({name}) holds {browser}'s real Login Data open and is not the browser")
         print()
 
 

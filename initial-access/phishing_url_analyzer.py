@@ -20,9 +20,12 @@ Usage:
     python phishing_url_analyzer.py <url> [more urls...]
 """
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 KNOWN_BRANDS = [
     "google.com", "microsoft.com", "apple.com", "amazon.com", "paypal.com",
@@ -97,6 +100,7 @@ def analyze(url):
         print("  No red flags from this analysis (not a guarantee of legitimacy — just no structural red flags).")
     for severity, reason in findings:
         print(f"  [{severity}] {reason}")
+        emit(source="phishing_url_analyzer", technique_id="T1566", severity=severity, message=f"{url}: {reason}")
 
 
 def main():

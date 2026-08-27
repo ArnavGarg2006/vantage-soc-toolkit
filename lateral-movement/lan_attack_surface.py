@@ -18,10 +18,13 @@ Usage:
 import ipaddress
 import socket
 import sys
+from pathlib import Path
 
 import psutil
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 LATERAL_MOVEMENT_PORTS = {
     22: "SSH",
@@ -87,6 +90,8 @@ def main():
             total_exposed += 1
             services = ", ".join(f"{port}/{svc}" for port, svc in open_ports)
             print(f"  {host}{marker}: OPEN -> {services}")
+            emit(source="lan_attack_surface", technique_id="T1021", severity="LOW",
+                 message=f"{host}{marker} exposes lateral-movement port(s): {services}")
         else:
             print(f"  {host}{marker}: none of the checked ports open")
 

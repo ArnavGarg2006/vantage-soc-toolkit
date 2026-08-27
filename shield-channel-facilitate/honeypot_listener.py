@@ -20,8 +20,11 @@ import socket
 import sys
 import threading
 import time
+from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from event_bus_client import emit  # noqa: E402 — Phase 5 event bus, optional/best-effort
 
 HOST = "127.0.0.1"
 PORT = 2222  # commonly-scanned "looks like SSH" port number, nothing real listening here otherwise
@@ -50,6 +53,8 @@ def run_listener(stop_event):
         entry = {"source": addr, "time": time.time(), "data": data}
         connection_log.append(entry)
         print(f"  Connection from {addr[0]}:{addr[1]} — {len(data)} byte(s) received: {data[:80]!r}")
+        emit(source="honeypot_listener", technique_id="DTE0004", severity="MEDIUM",
+             message=f"Connection from {addr[0]}:{addr[1]} — {len(data)} byte(s): {data[:80]!r}")
         conn.close()
 
     server.close()
