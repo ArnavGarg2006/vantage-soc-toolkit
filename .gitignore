@@ -12,8 +12,11 @@ persistence/demo_log.txt
 collection/scratch/
 shield-legitimize/scratch/
 
-# Event bus log - append-only telemetry regenerated each collector run
-event-bus/events.jsonl
+# Event bus history - durable SQLite store that accumulates real alerts
+# from THIS machine across sessions (real process/path details in some
+# messages) - same privacy reasoning as shield-collect/captures/ above,
+# never commit it
+event-bus/events.db
 realtime-detection/scratch/
 
 # Generated report - carries a fresh timestamp every run, would just be
