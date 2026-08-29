@@ -14,6 +14,11 @@ shield-legitimize/scratch/
 
 # Event bus log - append-only telemetry regenerated each collector run
 event-bus/events.jsonl
+realtime-detection/scratch/
+
+# Generated report - carries a fresh timestamp every run, would just be
+# repo-diff noise; regenerate with detection-engineering/generate_report.py
+detection-engineering/security_report.html
 
 # PyInstaller build output - rebuild with packaging/build.sh equivalent command;
 # the .exe itself is large binary, regenerate rather than commit

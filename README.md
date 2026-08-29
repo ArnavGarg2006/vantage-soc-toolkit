@@ -368,30 +368,147 @@ python event-bus/collector.py --self-test         # starts, emits 2 fake events
 python shield-detect/process_monitor.py --self-test
 python defense-evasion/masquerade_detector.py --self-test
 # ...any wired detector — its alerts appear on the dashboard within ~2s
+
+python realtime-detection/fs_watcher.py --self-test
+python realtime-detection/fs_watcher.py --demo-ransomware
+python realtime-detection/fs_watcher.py --try-kernel-trace   # honest elevation check
+
+python scorecard/attack_chain_scorecard.py
+
+python detection-engineering/generate_report.py   # writes security_report.html
 ```
 
-### Still queued for Phase 5
+### Real-time filesystem detection — built and verified (item 2)
 
-- **ETW-based real-time detection** — replace the polling loops that hit the
-  12.7s full-system-scan ceiling (documented in Phase 4's Credential Access
-  section) with real Windows Event Tracing subscriptions for file/process
-  events — kernel-level visibility instead of user-mode polling.
-- **Attack-chain scorecard** — extend `scorecard/attack_simulation_scorecard.py`
-  beyond single techniques to full multi-stage chains (e.g. Persistence →
-  Credential Access → Exfiltration run back-to-back), scoring whether the whole
-  chain is caught end-to-end.
-- **Unified HTML report generator** — one command that runs the scorecard +
-  Sigma export + Navigator export and produces a single shareable HTML report.
+Before writing this, checked live whether real kernel ETW/process tracing was
+even reachable from this session — it isn't, and the honest result is more
+interesting than a workaround:
+
+```
+>>> wmi.WMI().Win32_ProcessStartTrace.watch_for()
+x_access_denied()
+```
+
+Confirmed: kernel-level process tracing needs Administrator, no user-mode way
+around it. So [`realtime-detection/fs_watcher.py`](realtime-detection/fs_watcher.py)
+applies real-time notification where it's actually achievable unprivileged:
+`ReadDirectoryChangesW`, the real Windows API for asynchronous directory-change
+notifications — the filesystem filter driver pushes the event the instant it
+happens, instead of a loop asking "did anything change yet?" every N ms. This
+can't see a file being *opened for read* (that still needs the blocked kernel
+path — no way around that limitation), but it's a genuine, meaningful upgrade
+for write-heavy techniques already in this project: ransomware's mass file
+encryption (T1486) and collection staging (T1074.001) both currently detect
+via before/after snapshot diffing, which only reports what already happened.
+This reports each change as it happens, with a rate-based detector that can
+escalate **mid-attack**, before the batch even finishes.
+
+**Found and fixed a real bug** building this: the first version had a
+`stop()` method that called `CloseHandle()` from the calling thread to
+unblock the watcher thread's pending `ReadDirectoryChangesW()` call — this
+reliably **deadlocked the whole process**. Closing a handle out from under a
+pending *synchronous* cross-thread I/O call is a documented Windows hazard:
+`CloseHandle` blocks until that pending call completes, which here never
+happens (no further filesystem changes were coming). Fixed by dropping the
+synchronous stop entirely — the watcher thread is a daemon, so it dies for
+free the instant the process exits; every caller in this module is a
+one-shot script invocation anyway.
+
+**Verified output**:
+- `--self-test`: notification latency measured at **0.4ms** — compare to the
+  12,710ms full `psutil.process_iter()` scan measured in Phase 4.
+- `--demo-ransomware`: simulated a 6-file mass-encryption burst; the
+  rate-based detector fired `⚠️ HIGH (mid-attack)` after the **3rd** file
+  change, while files 4–6 were still being encrypted — PASSED.
+- `--try-kernel-trace`: re-confirmed the elevation block live, with the exact
+  command to try from an admin terminal printed for the user.
+
+### Attack-chain scorecard — built and verified (item 3)
+
+[`scorecard/attack_chain_scorecard.py`](scorecard/attack_chain_scorecard.py)
+asks a harder question than the single-technique scorecard: does a
+**multi-stage** attack survive end-to-end, or get caught somewhere along the
+way? It reuses the same real, individually-verified stage functions
+(no reimplementation) and chains them into two realistic narratives, scoring
+each two ways — `any_stage_caught` (would a defender be alerted at all?) and
+`full_chain_caught` (is there complete visibility across every stage?).
+
+**Chain A: Persistence → Credential Access → Exfiltration.** The third stage
+formats the same fake credentials the dummy store holds and sends them
+through the real exfiltration/DLP channel — not exfil_demo's own canned
+card/SSN payload.
+
+**Chain B: Command & Control → Impact.**
+
+**Verified output, live**:
+```
+Chain A (Credential Theft -> Exfiltration): any_stage_caught=True, full_chain_caught=False
+Chain B (C2-Driven Ransomware): any_stage_caught=True, full_chain_caught=True
+```
+Chain A surfaced a **genuine, previously-unknown gap**: persistence and
+credential access are both caught, but the exfiltration stage slips past the
+DLP detector in this exact shape — harvested browser credentials aren't
+card- or SSN-shaped, and the DLP's regex patterns only match those two
+shapes. This is exactly the kind of thing chain-level scoring exists to
+surface: individual-technique coverage (4/4 on the single scorecard) does
+not automatically mean full end-to-end visibility.
+
+### Unified HTML report generator — built and verified (item 4)
+
+[`detection-engineering/generate_report.py`](detection-engineering/generate_report.py)
+runs one live pass — the attack-simulation scorecard, the attack-chain
+scorecard (reusing the same `Result` objects from that one pass, not
+re-running everything three times), the current Sigma rule set, and the
+ATT&CK Navigator coverage — and renders all of it into one self-contained
+dark-themed HTML report: summary stat cards, per-technique and per-chain
+tables with CAUGHT/MISSED pills, and the Chain A gap called out explicitly.
+Every number in it comes from that one real execution, not a template.
+
+**Verified output**: generated `security_report.html`; grep-verified against
+the live run — **8 CAUGHT / 1 MISSED** across the report (matching the
+scorecard + chain results exactly), Chain A's gap-note correctly present,
+22 techniques and 3 Sigma rules both listed.
+
+### Full integration test — all of Phase 5 running together, live
+
+Started the event bus collector, then ran the realtime demo, both
+scorecards, and the report generator **as four separate process
+invocations** against it — no shared state, no shortcuts. Queried
+`/events.json` afterward:
+
+```
+13 total events received over real HTTP
+
+  persistence_demo             3
+  credential_access_demo       3
+  beacon_demo                  3
+  ransomware_sim               3
+  fs_watcher                   1
+
+By severity: {'HIGH': 10, 'MEDIUM': 3}
+```
+
+The counts check out exactly: each of the four wired Phase 2/4 detectors
+fired once per script (scorecard, chain scorecard, report generator = 3
+executions each), and `fs_watcher` fired once from the realtime demo — proof
+that the event bus, the wired detectors, both scorecards, and the report
+generator all genuinely cooperate over real HTTP, not just individually.
 
 ## What's left (genuinely open, not roadmap filler)
 
 - Contain/Disrupt's network half still needs an elevated terminal to verify
   end-to-end — genuinely blocked from this non-interactive session, not skipped;
   run the command in the Phase 4 section above from an admin terminal to close it.
-- The three Phase 5 items listed above are designed but not yet built.
+- True kernel-level process/file-open tracing (the ETW piece
+  `ReadDirectoryChangesW` genuinely can't reach) needs Administrator too —
+  confirmed live, not assumed; `fs_watcher.py --try-kernel-trace` from an
+  elevated terminal is the way to see it actually work.
+- Chain A's exfiltration-detection gap (harvested credentials don't match the
+  DLP's card/SSN patterns) is a real, open finding, not yet fixed — it's
+  exactly the kind of thing this project surfaces rather than hides.
 - Everything else on the original ATT&CK/Shield list has at least one working,
-  verified module now, and the event bus now gives them one shared dashboard.
-  Real gaps that remain are depth, not breadth: none of this is a full EDR (no
-  kernel-level hooks yet, no persistence across reboots for the detectors
-  themselves) — that's a deliberate scope boundary of a portfolio project, not
-  an oversight.
+  verified module now, and the event bus gives all of Phase 5 one shared,
+  live-verified dashboard. Real gaps that remain are depth, not breadth: none
+  of this is a full EDR (no kernel-level hooks without elevation, no
+  persistence across reboots for the detectors themselves) — that's a
+  deliberate scope boundary of a portfolio project, not an oversight.
