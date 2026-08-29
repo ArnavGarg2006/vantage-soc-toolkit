@@ -1,10 +1,40 @@
-# Python for Cybersecurity
+<div align="center">
+
+# 🎯 Vantage SOC Toolkit
+
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1200&color=A78BFA&center=true&vCenter=true&width=650&lines=22+MITRE+ATT%26CK%2FShield+techniques%2C+each+verified+live.;Real+bugs+found+and+fixed%2C+not+papered+over.;One+event+bus%2C+one+dashboard%2C+15+detectors+wired+in.;Sandboxed%2C+reversible%2C+localhost-only+-+never+real+data.)](https://github.com/ArnavGarg2006/vantage-soc-toolkit)
+
+![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)
+![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
+![ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK_aligned-7F5AF0)
+![Shield](https://img.shields.io/badge/MITRE-Shield_aligned-2CB67D)
+![Sandboxed](https://img.shields.io/badge/execution-sandboxed_%26_reversible-FF9900)
 
 A portfolio of Python security tooling organized around the **MITRE ATT&CK** (offensive
 tactics) and **MITRE Shield** (defensive tactics) frameworks — inspired by the structure
 of Howard Poston's [Python for Cybersecurity](https://github.com/hposton/python-for-cybersecurity)
 course, not a clone of its code. Every script here is real and independently verified live
 (see each module's section below), not a template with placeholder output.
+
+</div>
+
+<br>
+
+<div align="center">
+  <img src=".github/assets/event-bus-orbit.svg" alt="Animated diagram: a radar sweep rotating around a central Event Bus node, lighting up 8 satellite detector modules in sequence — Process Monitor, Credential Access, C2 Beacon, Ransomware, Persistence, Privilege Escalation, Masquerade, and Honeytoken, plus 7 more wired the same way" width="100%">
+  <br>
+  <sub>15 detector modules, one shared live dashboard — verified over real HTTP, not assumed.</sub>
+</div>
+
+<br>
+
+<div align="center">
+  <img src=".github/assets/tactic-coverage-hops.svg" alt="Animated diagram: a pulse hopping through Reconnaissance, Resource Development, Initial Access, Persistence, Privilege Escalation, Defense Evasion, Credential Access, and Lateral Movement, landing on a live dashboard" width="100%">
+  <br>
+  <sub>A sample of the 22 verified techniques spanning the full ATT&CK/Shield chain — every one has a working, live-tested module.</sub>
+</div>
+
+<br>
 
 Kept deliberately separate from [`aws security audit`](../aws%20security%20audit/) — that
 repo is a focused AWS cloud-security-posture portfolio piece; this one is host/network-level
@@ -380,6 +410,12 @@ python detection-engineering/generate_report.py   # writes security_report.html
 
 ### Real-time filesystem detection — built and verified (item 2)
 
+<div align="center">
+  <img src=".github/assets/latency-race.svg" alt="Animated diagram: two horizontal bars racing to answer 'did anything change?' — a slow orange bar labeled psutil full-system poll crawling to 12,710ms, and a fast green bar labeled ReadDirectoryChangesW push filling almost instantly at 0.4ms" width="100%">
+</div>
+
+<br>
+
 Before writing this, checked live whether real kernel ETW/process tracing was
 even reachable from this session — it isn't, and the honest result is more
 interesting than a workaround:
@@ -424,6 +460,12 @@ one-shot script invocation anyway.
   command to try from an admin terminal printed for the user.
 
 ### Attack-chain scorecard — built and verified (item 3)
+
+<div align="center">
+  <img src=".github/assets/chain-pipeline.svg" alt="Animated diagram: a pulse traveling through Persistence, Credential Access, and Exfiltration nodes — the first two light up green with a checkmark, the third lights up red with an X, then a summary reveals any_stage_caught: True and full_chain_caught: False" width="100%">
+</div>
+
+<br>
 
 [`scorecard/attack_chain_scorecard.py`](scorecard/attack_chain_scorecard.py)
 asks a harder question than the single-technique scorecard: does a
