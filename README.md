@@ -364,8 +364,9 @@ was catching at once. That's the specific gap Phase 5 closes, one piece at a tim
 
 | Module | What it does |
 |---|---|
-| [`event-bus/collector.py`](event-bus/collector.py) | Localhost-only (`127.0.0.1:8790`) HTTP collector — any detector can POST an alert to it. Serves a live, auto-refreshing dashboard at `/dashboard` (polls `/events.json` every 2s) and appends everything to `events.jsonl` so a session survives a restart |
+| [`event-bus/collector.py`](event-bus/collector.py) | Localhost-only (`127.0.0.1:8790`) HTTP collector — any detector can POST an alert to it. Serves a live, auto-refreshing dashboard at `/dashboard` (polls `/events.json` every 2s), and persists every event to a durable SQLite database (`event-bus/events.db`) — not just a flat log |
 | [`event_bus_client.py`](event_bus_client.py) | The shared `emit(source, technique_id, severity, message)` client every detector imports. Lives at the project root (not inside `event-bus/`) specifically because a hyphenated directory name can't be `import`ed as a package — the same constraint the scorecard already worked around with `importlib.util` for the Phase 2 modules. Fails silently in ~0.4s if no collector is running: this is strictly additive telemetry, never a dependency of the detection logic itself |
+| [`event-bus/query_history.py`](event-bus/query_history.py) | The analysis half of the durable store — a read-only CLI answering questions a live dashboard can't: which technique fires most on this machine, how many HIGH alerts happened this week, the day-by-day trend |
 
 **15 detector modules wired in** at their actual alert points — every module from
 Phase 1 through Phase 4 that produces a real finding: `process_monitor`,
@@ -387,6 +388,57 @@ HIGH honeytoken_watcher  DTE0013   PID 19396 (python.exe) accessed the honeytoke
 HIGH beacon_demo         T1071.001 coefficient of variation 0.007 < 0.15 threshold...
 ```
 
+### Durable, queryable event history — built and verified
+
+The dashboard above answers "what's happening right now." That's genuinely
+useful but it's the whole reason a real vantage point needs more than a live
+view: a ring buffer that only holds the last 500 events, wiped clean the
+moment the collector process exits, can't answer "which technique fires
+most on this machine" or "how did this week compare to last." So every
+event the collector receives now gets written to a local SQLite database
+(`event-bus/events.db`) in addition to the in-memory ring buffer — the ring
+buffer stays fast for the live dashboard, the database is what makes the
+history actually durable and queryable.
+
+`self_test()` had to change to prove this properly: it now verifies the
+persisted row count with an independent SQL query (not just trusting the
+in-memory count), and cleans up only the rows it created itself (`WHERE
+source='self_test'`) rather than wiping the whole database — a self-test
+that nukes real accumulated history on every run would defeat the entire
+point of durability.
+
+**Verified output, live, across two genuinely separate collector
+processes** (not one process pretending to be two): started the collector,
+ran `masquerade_detector.py --self-test` and `exfil_demo.py` against it,
+**stopped the collector entirely**, confirmed the 3 events were still on
+disk with the collector process gone, **started a brand-new collector
+process** against the same database, ran `honeytoken_watcher.py --self-test`
+against *that* one, then queried the combined history:
+
+```
+=== Event history summary (4 total event(s)) ===
+
+By severity:
+  HIGH     4
+
+By source:
+  exfil_demo                   2
+  honeytoken_watcher           1
+  masquerade_detector          1
+
+=== Top technique(s) by event count ===
+  T1041          2
+  DTE0013        1
+  T1036.005      1
+
+=== Events per day, last 1 day(s) ===
+  2026-08-30  ████████████████████████████████████████ 4
+```
+
+All 4 events from both independent sessions, correctly attributed —
+confirming the history survives a full collector restart, not just a
+crash within one process's lifetime.
+
 ```bash
 python event-bus/collector.py                    # start it, then open
                                                     # http://127.0.0.1:8790/dashboard
@@ -398,6 +450,13 @@ python event-bus/collector.py --self-test         # starts, emits 2 fake events
 python shield-detect/process_monitor.py --self-test
 python defense-evasion/masquerade_detector.py --self-test
 # ...any wired detector — its alerts appear on the dashboard within ~2s
+
+# query the durable history any time - collector doesn't need to be running:
+python event-bus/query_history.py --summary
+python event-bus/query_history.py --top-techniques 5
+python event-bus/query_history.py --since-days 7
+python event-bus/query_history.py --technique T1486
+python event-bus/query_history.py --trend 7
 
 python realtime-detection/fs_watcher.py --self-test
 python realtime-detection/fs_watcher.py --demo-ransomware
@@ -552,7 +611,21 @@ generator all genuinely cooperate over real HTTP, not just individually.
   exactly the kind of thing this project surfaces rather than hides.
 - Everything else on the original ATT&CK/Shield list has at least one working,
   verified module now, and the event bus gives all of Phase 5 one shared,
-  live-verified dashboard. Real gaps that remain are depth, not breadth: none
-  of this is a full EDR (no kernel-level hooks without elevation, no
-  persistence across reboots for the detectors themselves) — that's a
-  deliberate scope boundary of a portfolio project, not an oversight.
+  live-verified dashboard whose history now genuinely survives a restart
+  (SQLite-backed, see above) — that specific gap is closed. Real gaps that
+  remain are depth, not breadth: none of this is a full EDR (no kernel-level
+  hooks without elevation, no persistence across reboots *for the detectors
+  themselves* — the event history persists, the detectors don't run as
+  background services) — that's a deliberate scope boundary of a portfolio
+  project, not an oversight.
+
+**Depth roadmap** (queued, not yet built): baseline-and-deviate detection
+(learn *this machine's* normal process/network/service state across
+repeated runs — now finally possible with durable history — and flag
+deviations from that learned baseline instead of only fixed heuristics);
+an IOC-enrichment pipeline chaining `domain_age_checker.py` and
+`phishing_url_analyzer.py` automatically against anything `exfil_demo.py`'s
+DLP catches; tighter ATT&CK sub-technique mapping in the Navigator export;
+and testing whether unprivileged Windows Event Log reads (not a new ETW
+trace — reading what's already logged) can layer on top of `fs_watcher.py`
+as another non-polling telemetry source.

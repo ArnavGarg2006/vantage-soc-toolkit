@@ -13,9 +13,17 @@ now.
 
 Same localhost-only pattern (127.0.0.1, never 0.0.0.0) as
 c2/beacon_demo.py and exfiltration/exfil_demo.py — nothing here is
-reachable from outside this machine. Events are also appended to
-events.jsonl so a dashboard session survives a collector restart; the
-in-memory ring buffer (last 500) is what the dashboard actually polls.
+reachable from outside this machine.
+
+Every event is also persisted to a local SQLite database
+(event-bus/events.db) — not just held in the in-memory ring buffer the
+dashboard polls. That's what actually turns "one live dashboard" into
+"one queryable history": the ring buffer answers "what's happening right
+now," the database answers "how many HIGH alerts fired this week" or
+"which technique trips most often on this machine" — see
+query_history.py, which is a separate tool specifically because a
+live-alert view and a historical-analysis view are different jobs, not
+because it was convenient to split them.
 
 Usage:
     python event-bus/collector.py              # start the collector
@@ -24,10 +32,14 @@ Usage:
 
     python event-bus/collector.py --self-test   # starts, emits two fake
                                                   # events over real HTTP,
-                                                  # verifies both landed,
-                                                  # shuts down, cleans up
+                                                  # verifies both landed in
+                                                  # memory AND in the DB,
+                                                  # shuts down, removes only
+                                                  # its own test rows (real
+                                                  # history is never touched)
 """
 import json
+import sqlite3
 import sys
 import threading
 import time
@@ -39,11 +51,48 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 HOST = "127.0.0.1"
 PORT = 8790
-LOG_PATH = Path(__file__).resolve().parent / "events.jsonl"
+DB_PATH = Path(__file__).resolve().parent / "events.db"
 MAX_EVENTS_HELD = 500
 
-events = []  # in-memory ring buffer, oldest first
+events = []  # in-memory ring buffer, oldest first — backs the live dashboard only
 events_lock = threading.Lock()
+
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL NOT NULL,
+            source TEXT NOT NULL,
+            technique_id TEXT,
+            severity TEXT NOT NULL,
+            message TEXT NOT NULL
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_events_source ON events(source)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_events_technique ON events(technique_id)")
+    conn.commit()
+    conn.close()
+
+
+def persist_event(event):
+    """A fresh connection per write, not a shared one — ThreadingHTTPServer
+    hands each request its own thread, and sqlite3 connections aren't
+    safe to share across threads without extra care. The event volume
+    here (alerts, not telemetry firehose) makes a per-write connection
+    perfectly cheap."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "INSERT INTO events (timestamp, source, technique_id, severity, message) VALUES (?,?,?,?,?)",
+            (event["timestamp"], event["source"], event["technique_id"], event["severity"], event["message"]),
+        )
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"  (DB write failed, event still on the live dashboard: {e})")
 
 DASHBOARD_HTML = """<!doctype html>
 <html><head><meta charset="utf-8"><title>ATT&amp;CK/Shield Labs — Live Event Bus</title>
@@ -117,11 +166,7 @@ class Handler(BaseHTTPRequestHandler):
             events.append(event)
             if len(events) > MAX_EVENTS_HELD:
                 del events[0]
-        try:
-            with open(LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps(event) + "\n")
-        except OSError:
-            pass
+        persist_event(event)
 
         print(f"  [{event['severity']:6}] {event['source']:28} {event['technique_id']:12} {event['message']}")
         self.send_response(200)
@@ -150,6 +195,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def run_server():
+    init_db()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -169,15 +215,25 @@ def self_test():
     time.sleep(0.3)
 
     with events_lock:
-        count = len(events)
+        mem_count = len(events)
+
+    # Verify persistence separately from the in-memory count — this is the
+    # actual point of the DB layer, so the self-test has to prove it
+    # independently, not just trust that memory and disk agree.
+    conn = sqlite3.connect(DB_PATH)
+    db_count = conn.execute("SELECT COUNT(*) FROM events WHERE source='self_test'").fetchone()[0]
+    # Clean up ONLY this self-test's own rows — never truncate real history
+    # that happened to already be in the DB from a prior real session.
+    conn.execute("DELETE FROM events WHERE source='self_test'")
+    conn.commit()
+    conn.close()
 
     server.shutdown()
-    if LOG_PATH.exists():
-        LOG_PATH.unlink()
 
-    passed = ok1 and ok2 and count == 2
+    passed = ok1 and ok2 and mem_count == 2 and db_count == 2
     print(f"\n{'Self-test PASSED' if passed else 'Self-test FAILED'} — "
-          f"{count} event(s) received over real HTTP POST, log file cleaned up.")
+          f"{mem_count} event(s) in memory, {db_count} persisted to SQLite and verified by "
+          f"query (not just assumed), test rows removed — any real history in {DB_PATH.name} is untouched.")
 
 
 def main():
@@ -186,6 +242,7 @@ def main():
         return
     print(f"Event bus collector listening on http://{HOST}:{PORT}")
     print(f"Dashboard: http://{HOST}:{PORT}/dashboard")
+    print(f"History: {DB_PATH} — query it with event-bus/query_history.py")
     print("Waiting for events from any wired detector (Ctrl+C to stop)...\n")
     server = run_server()
     try:
