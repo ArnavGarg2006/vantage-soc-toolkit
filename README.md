@@ -21,7 +21,7 @@ course, not a clone of its code. Every script here is real and independently ver
 <br>
 
 <div align="center">
-  <img src=".github/assets/event-bus-orbit.svg" alt="Animated diagram: a radar sweep rotating around a central Event Bus node, lighting up 8 satellite detector modules in sequence — Process Monitor, Credential Access, C2 Beacon, Ransomware, Persistence, Privilege Escalation, Masquerade, and Honeytoken, plus 7 more wired the same way" width="100%">
+  <img src=".github/assets/dashboard-heartbeat.svg" alt="Animated diagram: an EKG-style waveform scrolling past a fixed 'now' playhead on the live event bus dashboard, with alert blips for persistence, C2 beaconing, and ransomware lighting up as they cross it" width="100%">
   <br>
   <sub>15 detector modules, one shared live dashboard — verified over real HTTP, not assumed.</sub>
 </div>
@@ -29,9 +29,9 @@ course, not a clone of its code. Every script here is real and independently ver
 <br>
 
 <div align="center">
-  <img src=".github/assets/tactic-coverage-hops.svg" alt="Animated diagram: a pulse hopping through Reconnaissance, Resource Development, Initial Access, Persistence, Privilege Escalation, Defense Evasion, Credential Access, and Lateral Movement, landing on a live dashboard" width="100%">
+  <img src=".github/assets/tactic-radial.svg" alt="Animated diagram: a radial progress ring building up segment by segment around 8 ATT&CK/Shield tactic buckets, ending on a center readout of 22 techniques verified" width="100%">
   <br>
-  <sub>A sample of the 22 verified techniques spanning the full ATT&CK/Shield chain — every one has a working, live-tested module.</sub>
+  <sub>22 verified techniques spanning the full ATT&CK/Shield chain — every segment has a working, live-tested module.</sub>
 </div>
 
 <br>
@@ -411,7 +411,7 @@ python detection-engineering/generate_report.py   # writes security_report.html
 ### Real-time filesystem detection — built and verified (item 2)
 
 <div align="center">
-  <img src=".github/assets/latency-race.svg" alt="Animated diagram: two horizontal bars racing to answer 'did anything change?' — a slow orange bar labeled psutil full-system poll crawling to 12,710ms, and a fast green bar labeled ReadDirectoryChangesW push filling almost instantly at 0.4ms" width="100%">
+  <img src=".github/assets/terminal-transcript.svg" alt="Animated diagram: a terminal window typing out the actual verified transcript — a self-test measuring 0.4ms notification latency, PASSED, then an attempted kernel process trace failing live with x_access_denied()" width="100%">
 </div>
 
 <br>
@@ -462,7 +462,9 @@ one-shot script invocation anyway.
 ### Attack-chain scorecard — built and verified (item 3)
 
 <div align="center">
-  <img src=".github/assets/chain-pipeline.svg" alt="Animated diagram: a pulse traveling through Persistence, Credential Access, and Exfiltration nodes — the first two light up green with a checkmark, the third lights up red with an X, then a summary reveals any_stage_caught: True and full_chain_caught: False" width="100%">
+  <img src=".github/assets/beacon-waveform-morph.svg" alt="Animated diagram: an oscilloscope trace morphing from irregular organic-looking traffic into perfectly regular, evenly-spaced beacon spikes, with the coefficient of variation reading crossfading from 0.4 (organic) to 0.007 (beacon detected)" width="100%">
+  <br>
+  <sub>Chain B's opening move, in one signature: the same beacon detector this chain scorecard reuses — a beacon can't help being regular.</sub>
 </div>
 
 <br>

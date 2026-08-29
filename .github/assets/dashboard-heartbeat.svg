@@ -1,0 +1,83 @@
+<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="hbBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="hbGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="hbScreen"><rect x="40" y="70" width="820" height="130" rx="10"/></clipPath>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="260" rx="18" fill="url(#hbBg)"/>
+  <text x="450" y="32" font-size="14" fill="#a7a9be" text-anchor="middle">event-bus/collector.py — alerts scroll past as detectors fire, live</text>
+
+  <circle cx="820" cy="30" r="5" fill="#2cb67d">
+    <animate attributeName="opacity" values="1;0.25;1" dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+  <text x="833" y="34" font-size="11" fill="#2cb67d">LIVE</text>
+
+  <!-- monitor screen -->
+  <rect x="40" y="70" width="820" height="130" rx="10" fill="#05070a" stroke="#2a2f3a"/>
+  <g clip-path="url(#hbScreen)">
+    <!-- grid -->
+    <g stroke="#1b2030" stroke-width="1">
+      <line x1="40" y1="135" x2="860" y2="135"/>
+      <line x1="150" y1="70" x2="150" y2="200"/>
+      <line x1="260" y1="70" x2="260" y2="200"/>
+      <line x1="370" y1="70" x2="370" y2="200"/>
+      <line x1="480" y1="70" x2="480" y2="200"/>
+      <line x1="590" y1="70" x2="590" y2="200"/>
+      <line x1="700" y1="70" x2="700" y2="200"/>
+      <line x1="810" y1="70" x2="810" y2="200"/>
+    </g>
+
+    <!-- two identical waveform tiles, scrolling left forever -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,0;-450,0" keyTimes="0;1" dur="6s" repeatCount="indefinite" calcMode="linear"/>
+      <path d="M40,135 L120,135 L130,90 L140,135 L260,135 L270,150 L280,110 L290,135 L370,135 L380,80 L390,135 L410,135 L490,135 L570,135 L580,90 L590,135 L710,135 L720,150 L730,110 L740,135 L820,135 L830,80 L840,135 L860,135"
+            fill="none" stroke="#2cb67d" stroke-width="2.5" filter="url(#hbGlow)"/>
+      <path d="M490,135 L570,135 L580,90 L590,135 L710,135 L720,150 L730,110 L740,135 L820,135 L830,80 L840,135 L860,135 L940,135 L950,150 L960,110 L970,135 L1080,135 L1090,80 L1100,135 L1120,135 L1200,135 L1280,135 L1290,90 L1300,135 L1310,135"
+            fill="none" stroke="#2cb67d" stroke-width="2.5" filter="url(#hbGlow)"/>
+    </g>
+  </g>
+
+  <!-- fixed playhead -->
+  <line x1="450" y1="70" x2="450" y2="200" stroke="#7f5af0" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <text x="450" y="215" font-size="10" fill="#9d8cff" text-anchor="middle">now</text>
+
+  <!-- blip 1: persistence, crosses playhead at t≈1.2s (20%) -->
+  <g text-anchor="middle">
+    <circle cx="450" cy="90" r="18" fill="#2cb67d" opacity="0" filter="url(#hbGlow)">
+      <animate attributeName="opacity" values="0;0;0.6;0.6;0" keyTimes="0;0.15;0.20;0.25;1" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="450" y="55" font-size="12" fill="#7ee8b8" opacity="0">🏠 persistence_demo → HKCU\Run flagged
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.15;0.20;0.25;1" dur="6s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- blip 2: beacon, crosses playhead at t≈2.93s (49%) -->
+  <g text-anchor="middle">
+    <circle cx="450" cy="150" r="18" fill="#ffb84d" opacity="0" filter="url(#hbGlow)">
+      <animate attributeName="opacity" values="0;0;0.6;0.6;0" keyTimes="0;0.44;0.49;0.54;1" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="450" y="230" font-size="12" fill="#ffd48a" opacity="0">📻 beacon_demo → cv 0.007, HIGH
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.44;0.49;0.54;1" dur="6s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- blip 3: ransomware, crosses playhead at t≈4.53s (75.5%) -->
+  <g text-anchor="middle">
+    <circle cx="450" cy="90" r="18" fill="#ff4d4f" opacity="0" filter="url(#hbGlow)">
+      <animate attributeName="opacity" values="0;0;0.6;0.6;0" keyTimes="0;0.71;0.755;0.80;1" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="450" y="55" font-size="12" fill="#ff9478" opacity="0">🔒 ransomware_sim → mass encrypt, HIGH
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.71;0.755;0.80;1" dur="6s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <text x="450" y="240" font-size="11" fill="#6f6d8c" text-anchor="middle">13 events, 5 sources, verified over real HTTP in one integration run</text>
+</svg>
