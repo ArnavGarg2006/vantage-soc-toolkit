@@ -1,0 +1,89 @@
+<svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="radBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="radGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="460" rx="18" fill="url(#radBg)"/>
+  <text x="450" y="34" font-size="14" fill="#a7a9be" text-anchor="middle">22 techniques mapped — one verified module per ATT&amp;CK/Shield tactic bucket, ring builds live</text>
+
+  <!-- faint full-circle track -->
+  <circle cx="290" cy="230" r="130" fill="none" stroke="#232842" stroke-width="14"/>
+
+  <!-- 8 segments, each draws in, holds, then all reset together -->
+  <g stroke-width="14" fill="none" stroke-linecap="round">
+    <circle cx="290" cy="230" r="130" stroke="#7f5af0" stroke-dasharray="86.22 730.59" transform="rotate(-90,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0;0.056;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#9d8cff" stroke-dasharray="86.22 730.59" transform="rotate(-45,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.039;0.094;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#58a6ff" stroke-dasharray="86.22 730.59" transform="rotate(0,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.078;0.133;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#2cb67d" stroke-dasharray="86.22 730.59" transform="rotate(45,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.117;0.172;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#7ee8b8" stroke-dasharray="86.22 730.59" transform="rotate(90,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.156;0.211;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#ffb84d" stroke-dasharray="86.22 730.59" transform="rotate(135,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.194;0.25;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#ff7a45" stroke-dasharray="86.22 730.59" transform="rotate(180,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.233;0.289;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="290" cy="230" r="130" stroke="#ff5f56" stroke-dasharray="86.22 730.59" transform="rotate(225,290,230)">
+      <animate attributeName="stroke-dashoffset" values="86.22;86.22;0;0;86.22" keyTimes="0;0.272;0.328;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- center readout -->
+  <g text-anchor="middle" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.328;0.348;0.867;1" dur="9s" repeatCount="indefinite"/>
+    <text x="290" y="222" font-size="52" font-weight="bold" fill="#e6edf3">22</text>
+    <text x="290" y="248" font-size="13" fill="#a7a9be">techniques verified</text>
+  </g>
+
+  <!-- segment labels, each fades in as its own arc completes -->
+  <g font-size="12" fill="#a7a9be">
+    <text x="345" y="69" text-anchor="start" opacity="0">Recon / Discovery
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.056;0.076;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="443" y="156" text-anchor="start" opacity="0">Resource Dev / Initial Access
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.094;0.114;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="451" y="285" text-anchor="start" opacity="0">Persistence / Priv Esc
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.133;0.153;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="365" y="383" text-anchor="start" opacity="0">Defense Evasion / Lat. Move
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.172;0.192;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="235" y="391" text-anchor="end" opacity="0">Cred. Access / Collection
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.211;0.231;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="137" y="305" text-anchor="end" opacity="0">C2 / Exfiltration
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.25;0.27;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="129" y="175" text-anchor="end" opacity="0">Impact
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.289;0.309;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+    <text x="216" y="77" text-anchor="end" opacity="0">Shield Ops
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.328;0.348;0.867;1" dur="9s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <text x="620" y="120" font-size="13" fill="#e0def4" font-weight="bold">Every segment ships with:</text>
+  <text x="620" y="150" font-size="12" fill="#a7a9be">✓ a real attack simulation</text>
+  <text x="620" y="176" font-size="12" fill="#a7a9be">✓ a paired detector</text>
+  <text x="620" y="202" font-size="12" fill="#a7a9be">✓ live-verified output, not a template</text>
+  <text x="620" y="240" font-size="12" fill="#6f6d8c">9 techniques added in Phase 4,</text>
+  <text x="620" y="260" font-size="12" fill="#6f6d8c">13 more wired into the event bus in Phase 5</text>
+</svg>

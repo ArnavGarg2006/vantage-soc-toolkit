@@ -1,0 +1,58 @@
+<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="oscBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="oscGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="260" rx="18" fill="url(#oscBg)"/>
+  <text x="450" y="30" font-size="14" fill="#a7a9be" text-anchor="middle">Same traffic volume, one signature — a beacon can't help being regular</text>
+
+  <!-- scope screen -->
+  <rect x="40" y="55" width="820" height="150" rx="10" fill="#05070a" stroke="#2a2f3a"/>
+  <g stroke="#1b2030" stroke-width="1">
+    <line x1="40" y1="150" x2="860" y2="150"/>
+    <line x1="150" y1="55" x2="150" y2="205"/>
+    <line x1="260" y1="55" x2="260" y2="205"/>
+    <line x1="370" y1="55" x2="370" y2="205"/>
+    <line x1="480" y1="55" x2="480" y2="205"/>
+    <line x1="590" y1="55" x2="590" y2="205"/>
+    <line x1="700" y1="55" x2="700" y2="205"/>
+    <line x1="810" y1="55" x2="810" y2="205"/>
+  </g>
+
+  <!-- the morphing trace itself: organic <-> perfectly regular beacon -->
+  <path fill="none" stroke-width="2.5" filter="url(#oscGlow)"
+        stroke="#2cb67d"
+        d="M60,150 L80,152 L100,148 L120,151 L140,149 L160,110 L180,150 L200,152 L220,148 L240,95 L260,151 L280,149 L300,150 L320,152 L340,148 L360,151 L380,149 L400,150 L420,152 L440,60 L460,150 L480,148 L500,130 L520,151 L540,149 L560,150 L580,152 L600,148 L620,151 L640,149 L660,150 L680,75 L700,152 L720,148 L740,150 L760,151 L780,115 L800,149 L820,150 L840,151">
+    <animate attributeName="d" dur="7s" repeatCount="indefinite"
+      values="
+        M60,150 L80,152 L100,148 L120,151 L140,149 L160,110 L180,150 L200,152 L220,148 L240,95 L260,151 L280,149 L300,150 L320,152 L340,148 L360,151 L380,149 L400,150 L420,152 L440,60 L460,150 L480,148 L500,130 L520,151 L540,149 L560,150 L580,152 L600,148 L620,151 L640,149 L660,150 L680,75 L700,152 L720,148 L740,150 L760,151 L780,115 L800,149 L820,150 L840,151;
+        M60,150 L80,152 L100,148 L120,151 L140,149 L160,110 L180,150 L200,152 L220,148 L240,95 L260,151 L280,149 L300,150 L320,152 L340,148 L360,151 L380,149 L400,150 L420,152 L440,60 L460,150 L480,148 L500,130 L520,151 L540,149 L560,150 L580,152 L600,148 L620,151 L640,149 L660,150 L680,75 L700,152 L720,148 L740,150 L760,151 L780,115 L800,149 L820,150 L840,151;
+        M60,150 L80,150 L100,150 L120,150 L140,50 L160,150 L180,150 L200,150 L220,150 L240,150 L260,150 L280,150 L300,50 L320,150 L340,150 L360,150 L380,150 L400,150 L420,150 L440,150 L460,50 L480,150 L500,150 L520,150 L540,150 L560,150 L580,150 L600,150 L620,50 L640,150 L660,150 L680,150 L700,150 L720,150 L740,150 L760,150 L780,50 L800,150 L820,150 L840,150;
+        M60,150 L80,150 L100,150 L120,150 L140,50 L160,150 L180,150 L200,150 L220,150 L240,150 L260,150 L280,150 L300,50 L320,150 L340,150 L360,150 L380,150 L400,150 L420,150 L440,150 L460,50 L480,150 L500,150 L520,150 L540,150 L560,150 L580,150 L600,150 L620,50 L640,150 L660,150 L680,150 L700,150 L720,150 L740,150 L760,150 L780,50 L800,150 L820,150 L840,150;
+        M60,150 L80,152 L100,148 L120,151 L140,149 L160,110 L180,150 L200,152 L220,148 L240,95 L260,151 L280,149 L300,150 L320,152 L340,148 L360,151 L380,149 L400,150 L420,152 L440,60 L460,150 L480,148 L500,130 L520,151 L540,149 L560,150 L580,152 L600,148 L620,151 L640,149 L660,150 L680,75 L700,152 L720,148 L740,150 L760,151 L780,115 L800,149 L820,150 L840,151"
+      keyTimes="0;0.35;0.5;0.85;1"/>
+    <animate attributeName="stroke" values="#2cb67d;#2cb67d;#ff4d4f;#ff4d4f;#2cb67d" keyTimes="0;0.35;0.5;0.85;1" dur="7s" repeatCount="indefinite"/>
+  </path>
+
+  <!-- readouts, crossfading with the morph -->
+  <g text-anchor="middle">
+    <text x="200" y="95" font-size="14" font-weight="bold" fill="#7ee8b8">
+      <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.33;0.5;0.85;1" dur="7s" repeatCount="indefinite"/>
+      cv ≈ 0.4 — organic
+    </text>
+    <text x="700" y="95" font-size="14" font-weight="bold" fill="#ff9478">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.35;0.52;0.83;1" dur="7s" repeatCount="indefinite"/>
+      cv = 0.007 — ⚠ BEACON
+    </text>
+  </g>
+
+  <text x="450" y="230" font-size="11" fill="#6f6d8c" text-anchor="middle">c2/beacon_demo.py — 8 real beacons, 1.5s interval, detect_beaconing() caught it live at cv=0.007</text>
+</svg>
