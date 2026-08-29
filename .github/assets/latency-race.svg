@@ -1,0 +1,57 @@
+<svg viewBox="0 0 900 260" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="raceBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <linearGradient id="slowBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff7a45"/>
+      <stop offset="100%" stop-color="#ff4d4f"/>
+    </linearGradient>
+    <linearGradient id="fastBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2cb67d"/>
+      <stop offset="100%" stop-color="#7ee8b8"/>
+    </linearGradient>
+    <filter id="raceGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="260" rx="18" fill="url(#raceBg)"/>
+  <text x="450" y="32" font-size="14" fill="#a7a9be" text-anchor="middle">Same question — "did anything change?" — two ways to answer it. Loop timing compressed; readouts are the real measured values.</text>
+
+  <!-- track scale ticks (suggests discrete polling attempts) -->
+  <g stroke="#3d3a6b" stroke-width="1" stroke-dasharray="2 6">
+    <line x1="140" y1="75" x2="140" y2="205"/>
+    <line x1="290" y1="75" x2="290" y2="205"/>
+    <line x1="440" y1="75" x2="440" y2="205"/>
+    <line x1="590" y1="75" x2="590" y2="205"/>
+    <line x1="740" y1="75" x2="740" y2="205"/>
+  </g>
+
+  <!-- SLOW row: psutil full-system poll -->
+  <text x="140" y="95" font-size="13" fill="#ff9478" text-anchor="start">psutil.process_iter() full-system poll (Phase 4, before the fix)</text>
+  <rect x="140" y="105" width="660" height="26" rx="8" fill="#161a22" stroke="#2a2f3a"/>
+  <rect x="140" y="105" width="0" height="26" rx="8" fill="url(#slowBar)" filter="url(#raceGlow)">
+    <animate attributeName="width" values="0;0;660;660;0" keyTimes="0;0.02;0.75;0.92;1" dur="5s" repeatCount="indefinite"/>
+  </rect>
+  <text x="850" y="123" font-size="15" font-weight="bold" fill="#ff7a45" text-anchor="end">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.73;0.75;0.92;1" dur="5s" repeatCount="indefinite"/>
+    12,710ms
+  </text>
+
+  <!-- FAST row: ReadDirectoryChangesW push -->
+  <text x="140" y="163" font-size="13" fill="#7ee8b8" text-anchor="start">ReadDirectoryChangesW real-time push (Phase 5, fs_watcher.py)</text>
+  <rect x="140" y="173" width="660" height="26" rx="8" fill="#161a22" stroke="#2a2f3a"/>
+  <rect x="140" y="173" width="0" height="26" rx="8" fill="url(#fastBar)" filter="url(#raceGlow)">
+    <animate attributeName="width" values="0;0;660;660;0" keyTimes="0;0.02;0.05;0.92;1" dur="5s" repeatCount="indefinite"/>
+  </rect>
+  <text x="850" y="191" font-size="15" font-weight="bold" fill="#2cb67d" text-anchor="end">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.03;0.05;0.92;1" dur="5s" repeatCount="indefinite"/>
+    0.4ms
+  </text>
+
+  <text x="450" y="235" font-size="12" fill="#6f6d8c" text-anchor="middle">~31,000x faster — the filesystem filter driver pushes the event instead of a loop asking every N ms</text>
+</svg>

@@ -1,0 +1,118 @@
+<svg viewBox="0 0 1040 220" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="tcBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="tcGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <path id="tcHopPath" d="M55,110 L170,75 L285,135 L400,80 L515,140 L630,85 L745,130 L860,80 L975,110" fill="none"/>
+  </defs>
+
+  <rect x="0" y="0" width="1040" height="220" rx="18" fill="url(#tcBg)"/>
+
+  <!-- connecting path -->
+  <path d="M55,110 L170,75 L285,135 L400,80 L515,140 L630,85 L745,130 L860,80 L975,110"
+        fill="none" stroke="#3d3a6b" stroke-width="2" stroke-dasharray="4 5"/>
+
+  <!-- node 0: Reconnaissance -->
+  <g>
+    <rect x="20" y="75" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="55" cy="110" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="0s" repeatCount="indefinite"/>
+    </circle>
+    <text x="55" y="122" font-size="28" text-anchor="middle">🔍</text>
+    <text x="55" y="168" font-size="11" fill="#a7a9be" text-anchor="middle">Recon</text>
+  </g>
+
+  <!-- node 1: Resource Development -->
+  <g>
+    <rect x="135" y="40" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="170" cy="75" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="1s" repeatCount="indefinite"/>
+    </circle>
+    <text x="170" y="87" font-size="28" text-anchor="middle">🏭</text>
+    <text x="170" y="133" font-size="11" fill="#a7a9be" text-anchor="middle">Res. Dev</text>
+  </g>
+
+  <!-- node 2: Initial Access -->
+  <g>
+    <rect x="250" y="100" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="285" cy="135" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="285" y="147" font-size="28" text-anchor="middle">📧</text>
+    <text x="285" y="193" font-size="11" fill="#a7a9be" text-anchor="middle">Init. Access</text>
+  </g>
+
+  <!-- node 3: Persistence -->
+  <g>
+    <rect x="365" y="45" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="400" cy="80" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="3s" repeatCount="indefinite"/>
+    </circle>
+    <text x="400" y="92" font-size="28" text-anchor="middle">🏠</text>
+    <text x="400" y="138" font-size="11" fill="#a7a9be" text-anchor="middle">Persistence</text>
+  </g>
+
+  <!-- node 4: Privilege Escalation -->
+  <g>
+    <rect x="480" y="105" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="515" cy="140" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="4s" repeatCount="indefinite"/>
+    </circle>
+    <text x="515" y="152" font-size="28" text-anchor="middle">⬆️</text>
+    <text x="515" y="198" font-size="11" fill="#a7a9be" text-anchor="middle">Priv Esc</text>
+  </g>
+
+  <!-- node 5: Defense Evasion -->
+  <g>
+    <rect x="595" y="50" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="630" cy="85" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="5s" repeatCount="indefinite"/>
+    </circle>
+    <text x="630" y="97" font-size="28" text-anchor="middle">🎭</text>
+    <text x="630" y="143" font-size="11" fill="#a7a9be" text-anchor="middle">Def Evasion</text>
+  </g>
+
+  <!-- node 6: Credential Access -->
+  <g>
+    <rect x="710" y="95" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="745" cy="130" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="745" y="142" font-size="28" text-anchor="middle">🔑</text>
+    <text x="745" y="188" font-size="11" fill="#a7a9be" text-anchor="middle">Cred Access</text>
+  </g>
+
+  <!-- node 7: Lateral Movement -->
+  <g>
+    <rect x="825" y="45" width="70" height="70" rx="14" fill="#161a22" stroke="#2a2f3a"/>
+    <circle cx="860" cy="80" r="34" fill="#7f5af0" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.55;0" dur="8s" begin="7s" repeatCount="indefinite"/>
+    </circle>
+    <text x="860" y="92" font-size="28" text-anchor="middle">🕸️</text>
+    <text x="860" y="138" font-size="11" fill="#a7a9be" text-anchor="middle">Lat. Move</text>
+  </g>
+
+  <!-- node 8: Live Dashboard (destination) -->
+  <g>
+    <rect x="937" y="75" width="78" height="70" rx="14" fill="#161a22" stroke="#2cb67d" stroke-width="1.5"/>
+    <circle cx="975" cy="110" r="38" fill="#2cb67d" opacity="0" filter="url(#tcGlow)">
+      <animate attributeName="opacity" values="0;0.7;0" dur="8s" begin="8s" repeatCount="indefinite"/>
+    </circle>
+    <text x="975" y="122" font-size="28" text-anchor="middle">📊</text>
+    <text x="975" y="168" font-size="11" fill="#7ee8b8" text-anchor="middle">Dashboard</text>
+  </g>
+
+  <!-- traveling pulse -->
+  <circle r="7" fill="#fffffe" filter="url(#tcGlow)">
+    <animateMotion dur="8s" repeatCount="indefinite" calcMode="linear">
+      <mpath xlink:href="#tcHopPath" href="#tcHopPath"/>
+    </animateMotion>
+    <animate attributeName="fill" values="#fffffe;#7f5af0;#fffffe" dur="1s" repeatCount="indefinite"/>
+  </circle>
+</svg>

@@ -1,0 +1,74 @@
+<svg viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="chainBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="chainGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <path id="chainPath" d="M150,120 L450,120 L780,120" fill="none"/>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="280" rx="18" fill="url(#chainBg)"/>
+  <text x="450" y="32" font-size="14" fill="#a7a9be" text-anchor="middle">Chain A: Persistence → Credential Access → Exfiltration — one live run, scored end-to-end</text>
+
+  <!-- connecting path -->
+  <path d="M150,120 L450,120 L780,120" fill="none" stroke="#3d3a6b" stroke-width="2" stroke-dasharray="4 5"/>
+
+  <!-- node 0: Persistence -->
+  <g text-anchor="middle">
+    <rect x="115" y="85" width="70" height="70" rx="14" fill="#161a22" stroke="#2cb67d" stroke-width="1.5"/>
+    <circle cx="150" cy="120" r="34" fill="#2cb67d" opacity="0" filter="url(#chainGlow)">
+      <animate attributeName="opacity" values="0;0.55;0.15;0" keyTimes="0;0.08;0.4;1" dur="6s" begin="0s" repeatCount="indefinite"/>
+    </circle>
+    <text x="150" y="132" font-size="30">🏠</text>
+    <text x="150" y="178" font-size="12" fill="#a7a9be">Persistence</text>
+    <text x="150" y="72" font-size="20" fill="#2cb67d" opacity="0">✓
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.05;0.1;0.92;1" dur="6s" begin="0s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- node 1: Credential Access -->
+  <g text-anchor="middle">
+    <rect x="415" y="85" width="70" height="70" rx="14" fill="#161a22" stroke="#2cb67d" stroke-width="1.5"/>
+    <circle cx="450" cy="120" r="34" fill="#2cb67d" opacity="0" filter="url(#chainGlow)">
+      <animate attributeName="opacity" values="0;0.55;0.15;0" keyTimes="0;0.08;0.4;1" dur="6s" begin="3s" repeatCount="indefinite"/>
+    </circle>
+    <text x="450" y="132" font-size="30">🔑</text>
+    <text x="450" y="178" font-size="12" fill="#a7a9be">Cred. Access</text>
+    <text x="450" y="72" font-size="20" fill="#2cb67d" opacity="0">✓
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.05;0.1;0.92;1" dur="6s" begin="3s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- node 2: Exfiltration (the gap) -->
+  <g text-anchor="middle">
+    <rect x="745" y="85" width="70" height="70" rx="14" fill="#161a22" stroke="#ff4d4f" stroke-width="1.5"/>
+    <circle cx="780" cy="120" r="38" fill="#ff4d4f" opacity="0" filter="url(#chainGlow)">
+      <animate attributeName="opacity" values="0;0.65;0.2;0" keyTimes="0;0.08;0.4;1" dur="6s" begin="6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="780" y="132" font-size="30">📤</text>
+    <text x="780" y="178" font-size="12" fill="#a7a9be">Exfiltration</text>
+    <text x="780" y="72" font-size="20" fill="#ff4d4f" opacity="0">✗
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.05;0.1;0.92;1" dur="6s" begin="6s" repeatCount="indefinite"/>
+    </text>
+  </g>
+
+  <!-- traveling pulse -->
+  <circle r="7" fill="#fffffe" filter="url(#chainGlow)">
+    <animateMotion dur="6s" repeatCount="indefinite" calcMode="linear">
+      <mpath xlink:href="#chainPath" href="#chainPath"/>
+    </animateMotion>
+    <animate attributeName="fill" values="#fffffe;#9d8cff;#fffffe" dur="1s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- summary readout -->
+  <g text-anchor="middle" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.02;0.05;0.92;1" dur="6s" begin="6s" repeatCount="indefinite"/>
+    <text x="450" y="225" font-size="16" font-weight="bold" fill="#2cb67d">any_stage_caught: True</text>
+    <text x="450" y="250" font-size="16" font-weight="bold" fill="#ff4d4f">full_chain_caught: False — harvested credentials don't match the DLP's card/SSN patterns</text>
+  </g>
+</svg>
