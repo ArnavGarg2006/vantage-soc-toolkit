@@ -85,10 +85,22 @@ and found 10 live devices on the home network via ARP.
 **tshark analysis** of a fresh capture caught two real, non-obvious things: DNS queries to
 `api.bitcore.io` and `api.blockcypher.com` (blockchain APIs) that `correlate_connections.py`
 traced to a live `msedge.exe` connection — a browser tab, not a hidden process, but only
-knowable by combining capture + process data. It also surfaced a genuine networking fact:
-most TCP/UDP frames showed as opaque `eth > data` instead of properly dissected IP, a
-known effect of NIC hardware checksum/segmentation offload interfering with what Npcap
-actually captures — not a bug in the script, a real caveat of live capture on modern NICs.
+knowable by combining capture + process data.
+
+**Correction, found much later while testing against a real downloaded training pcap
+(see the depth-roadmap section below)**: this section originally claimed most TCP/UDP
+frames showing as opaque `eth > data` instead of properly dissected IP was "a known
+effect of NIC hardware checksum/segmentation offload." That explanation was wrong — it
+sounded plausible and was never actually verified. The real cause: this machine's
+Wireshark profile had the `ip` and `http` dissectors explicitly disabled in
+`%APPDATA%\Wireshark\disabled_protos`, global config state with nothing to do with NIC
+offload or live capture at all — proven by the fact a completely unrelated, previously
+downloaded pcap from another machine showed the identical symptom. `pcap_analysis.py`
+now passes `--enable-protocol` on every tshark invocation so it no longer depends on
+this machine's ambient Wireshark configuration. Left this correction in place rather
+than quietly editing the original claim — the wrong explanation was real output from an
+earlier verification pass, and un-verifying a plausible-sounding guess is worth
+recording the same way a bug fix is.
 
 **Process monitor self-test**: `python process_monitor.py --self-test` spawns a real
 `powershell.exe` child process that opens a real TCP connection to `example.com:80` and
@@ -734,6 +746,73 @@ assumed from what the tactic used to be called.
 ```bash
 python detection-engineering/attack_cti_lookup.py --validate
 python detection-engineering/attack_cti_lookup.py --lookup T1486
+```
+
+## Depth roadmap, item 3: real labeled training pcaps
+
+Every capture this project analyzed before this point was either a live
+5-second demo capture on this machine or a synthetic one — never a real,
+complex, professionally-labeled malicious traffic sample. This closes
+that gap using [malware-traffic-analysis.net](https://www.malware-traffic-analysis.net/),
+a site that exists specifically to publish labeled pcaps for practicing
+traffic analysis, with an explicit training-exercises section for exactly
+this use case.
+
+**Downloading this deserved real caution, not just a checklist item**:
+the site's own about page warns that some of its zip archives contain
+live malware samples (identifiable by "malware" in the filename), and
+that even plain pcaps can trip AV/Defender simply for being unfamiliar
+traffic. This was flagged to the user explicitly before downloading
+anything, with the filename, source, and size stated up front — not
+assumed to be fine just because the source is legitimate.
+
+| Module | What it does |
+|---|---|
+| [`shield-collect/fetch_training_pcap.py`](shield-collect/fetch_training_pcap.py) | Downloads a labeled training pcap zip and extracts it with the site's real password scheme (`infected_YYYYMMDD`, confirmed from their own about page). Refuses anything with "malware" in the filename — a live sample, not a traffic capture — as an extra guard |
+
+**A real, slightly funny bug caught immediately**: the first run refused
+to download *any* URL from the site at all, because the malware check
+tested the whole URL string — and the site's own domain is literally
+`malware-traffic-analysis.net`, so every single link matched. Fixed by
+checking just the filename, not the full URL.
+
+**Then, running this project's own tooling against a real 22,473-packet
+labeled capture surfaced two more real, independent bugs**, both only
+visible at realistic scale — the small demo captures used everywhere
+else in this project were too small to expose either one:
+
+1. **`scapy_pcap_analysis.py`'s suspicious-indicators pass was 22:1 noise.**
+   The first run flagged 3,946 individual "traffic to port 80" lines
+   against only 176 genuine cleartext HTTP request lines — every packet
+   on an already-flagged connection got its own line. Fixed by
+   summarizing port-80 traffic as one count instead of one line per
+   packet; ports 21/23 (rare enough that every sighting matters) still
+   flag individually. After the fix, the real signal is immediately
+   visible: repeated `POST`/`GET` requests to obfuscated paths
+   (`/irpw/`, `/lqjm/`) carrying a persistent session token — a textbook
+   HTTP-based C2 beacon pattern.
+
+2. **`pcap_analysis.py`'s "NIC hardware offload" explanation from Phase 1
+   was wrong** — and this pcap is what proved it. That section originally
+   attributed frames showing as opaque `eth > data` (empty DNS/HTTP/TLS
+   sections) to NIC checksum/segmentation offload during live capture.
+   This downloaded pcap, from a completely different machine, showed the
+   identical symptom — which live-capture hardware effects cannot
+   explain. The actual cause: this machine's Wireshark profile has the
+   `ip` and `http` dissectors explicitly disabled in
+   `%APPDATA%\Wireshark\disabled_protos`. Fixed by passing
+   `--enable-protocol` on every tshark invocation, overriding that
+   disabled state for just this process without touching saved Wireshark
+   preferences. After the fix, the same capture that showed nothing but
+   `eth > data` now shows full dissection — DNS, HTTP, Kerberos, SMB2,
+   TLS, LDAP — and the original Phase 1 section was corrected in place
+   rather than silently edited, since a wrong explanation is worth
+   recording the same way a bug fix is.
+
+```bash
+python shield-collect/fetch_training_pcap.py <zip-url> --date YYYY-MM-DD
+python shield-collect/scapy_pcap_analysis.py shield-collect/training-pcaps/<file>.pcap
+python shield-collect/pcap_analysis.py shield-collect/training-pcaps/<file>.pcap
 ```
 
 ## What's left (genuinely open, not roadmap filler)
