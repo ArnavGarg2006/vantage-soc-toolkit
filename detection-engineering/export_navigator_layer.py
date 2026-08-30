@@ -27,6 +27,9 @@ OUT_PATH = Path(__file__).parent / "attack_navigator_layer.json"
 TECHNIQUES = [
     ("T1590.002", 100, "reconnaissance/dns_recon.py - DNS record enumeration, verified against example.com"),
     ("T1596.001", 100, "reconnaissance/dns_recon.py - subdomain enumeration, verified"),
+    ("T1596.003", 50, "reconnaissance/cert_transparency.py - crt.sh certificate transparency search; parsing logic "
+                       "verified against the real response shape and the failure path verified live, but crt.sh "
+                       "itself hit a full 502 outage at build time so a live successful query is not yet confirmed"),
     ("T1082", 100, "discovery/local_discovery.py - system info, verified"),
     ("T1057", 100, "discovery/local_discovery.py - process discovery, verified"),
     ("T1016", 100, "discovery/local_discovery.py - network config discovery, verified"),
