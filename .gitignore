@@ -27,6 +27,11 @@ baseline-detection/baseline.db
 # we authored; attack_cti_lookup.py re-downloads it on first run
 detection-engineering/attack-stix/
 
+# Downloaded third-party training pcaps - real, large, and per the source
+# site's own warning can trip AV scanners; fetch_training_pcap.py
+# re-downloads on demand, never something to commit
+shield-collect/training-pcaps/
+
 # Generated report - carries a fresh timestamp every run, would just be
 # repo-diff noise; regenerate with detection-engineering/generate_report.py
 detection-engineering/security_report.html

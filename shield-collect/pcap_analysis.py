@@ -15,6 +15,20 @@ Usage:
     python pcap_analysis.py [path/to/file.pcap]     # defaults to the most
                                                        # recent capture
     python pcap_analysis.py --open-wireshark [file]  # also launch the GUI
+
+A note on a real bug this project used to misattribute: earlier verified
+output claimed live-captured frames showing as opaque "eth > data" (no ip
+layer, empty DNS/HTTP/TLS sections) was "a known effect of NIC hardware
+checksum/segmentation offload." That explanation was wrong. The actual
+cause, found while testing against a downloaded (not live-captured) real
+training pcap that showed the identical symptom: this machine's Wireshark
+profile has the `ip` and `http` dissectors explicitly disabled in
+%APPDATA%\\Wireshark\\disabled_protos — global state that has nothing to do
+with NIC offload or how a capture was taken. Fixed by passing
+--enable-protocol on every tshark invocation below, which overrides that
+disabled state for just this process without touching your saved
+Wireshark preferences — this script no longer depends on this machine's
+ambient Wireshark configuration being in any particular state.
 """
 import subprocess
 import sys
@@ -26,9 +40,14 @@ TSHARK = r"C:\Program Files\Wireshark\tshark.exe"
 WIRESHARK = r"C:\Program Files\Wireshark\Wireshark.exe"
 CAPTURE_DIR = Path(__file__).parent / "captures"
 
+# Overrides this machine's disabled_protos state for just this process -
+# see the module docstring for how this was actually found and why the
+# earlier "NIC offload" explanation was wrong.
+FORCE_ENABLE = ["--enable-protocol", "ip", "--enable-protocol", "http"]
+
 
 def run_tshark(args, pcap_path):
-    result = subprocess.run([TSHARK, "-r", str(pcap_path)] + args,
+    result = subprocess.run([TSHARK, "-r", str(pcap_path)] + FORCE_ENABLE + args,
                              capture_output=True, text=True, timeout=30)
     return result.stdout.strip()
 
