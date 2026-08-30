@@ -934,3 +934,62 @@ python ai-security/agent_baseline.py --self-test
 python ai-security/agent_baseline.py --learn
 python ai-security/agent_baseline.py --check read_file edit_file run_tests
 ```
+
+## Wireshark, three ways deeper
+
+Closes the loop on the `disabled_protos` discovery from the pcap depth-roadmap
+item, plus two capabilities the Wireshark **GUI** itself never had from this
+project before now — everything up to this point only ever drove `tshark`
+(the CLI engine) or opened the raw GUI unfiltered.
+
+| Module | What it does |
+|---|---|
+| [`shield-collect/wireshark_config_audit.py`](shield-collect/wireshark_config_audit.py) | Read-only by default: reports which protocols this machine's saved Wireshark profile has disabled, flagging only the ones this project's analysis actually depends on (`ip`, `http`, `tcp`, `udp`, `dns`, `tls`, `arp`). `--fix` backs up the file first, then removes only those — any other disabled protocol you set on purpose is left untouched |
+| `pcap_analysis.py --open-wireshark` (updated) | Now derives a real display filter from what *that specific run* actually found — cleartext HTTP, cleartext auth, FTP/Telnet, ARP conflicts — and launches the GUI pre-filtered to it, instead of opening the raw unfiltered capture. Falls back to unfiltered if nothing was found or the derived filter fails validation |
+| [`shield-collect/export_wireshark_colors.py`](shield-collect/export_wireshark_colors.py) | Generates a real Wireshark colorfilters file from this project's own detection logic — the same checks `pcap_analysis.py` runs, as GUI highlighting rules |
+
+### Verified output
+
+**Config audit**: self-test (against a temp file, never the real profile)
+correctly identified `{ip, http}` from a mixed set including unrelated
+disabled protocols, and `--fix` removed only those two, leaving the
+others alone. The read-only audit against this machine's *actual* profile
+correctly found the same 2 (of 23 total disabled) protocols documented in
+the pcap depth-roadmap section — confirmed, not re-guessed.
+
+**Filtered GUI launch**: ran the real 22,473-packet training capture
+through the updated logic — derived filter `(http.request)`, validated
+`True` via `tshark -Y` (the same filter engine the GUI itself uses, so a
+syntax error here would fail identically there). Regression-checked
+against the small demo capture too: correctly derives no filter when
+nothing suspicious is found, falling back to the unfiltered open.
+
+**Coloring rules export**: all 5 rules validated against a real capture
+before being written — confirmed this validation is a genuine check, not
+a no-op, by first proving it correctly *rejects* a deliberately malformed
+filter expression. **Found and fixed a real bug getting here**: the first
+version tried validating filters by piping empty stdin into `tshark -r -`
+to avoid needing a real pcap file — but tshark refuses stdin as a
+"special file" before it even reaches the filter compiler, so it failed
+*every* filter, valid or not, for the wrong reason entirely. Fixed by
+validating against a real capture file instead, the same pattern
+`pcap_analysis.py`'s own filter validation already used.
+
+**Honest limitation, stated plainly**: this project has no way to
+screenshot a native desktop application window — only a browser pane —
+so the actual *rendered* colors and the filtered GUI's visual result
+aren't something this session verified by looking at them. What's
+provably true: the colorfilters format matches Wireshark's own shipped
+default file byte-for-byte in structure, and every filter expression in
+both features is confirmed syntactically valid by the real filter engine.
+Whether it looks right is for you to open Wireshark and see.
+
+```bash
+python shield-collect/wireshark_config_audit.py            # report only
+python shield-collect/wireshark_config_audit.py --fix       # actually fixes your profile
+
+python shield-collect/pcap_analysis.py --open-wireshark [file]   # now filtered
+
+python shield-collect/export_wireshark_colors.py
+# then in Wireshark: View > Coloring Rules... > Import > pycyber-colorfilters
+```
