@@ -98,21 +98,25 @@ def http_requests(pcap_path):
     if out:
         for line in out.splitlines():
             print(f"  {line}")
-    else:
-        print("  (none)")
+        return True
+    print("  (none)")
+    return False
 
 
 def suspicious_indicators(pcap_path):
     print("\n=== Suspicious indicators ===")
     findings = []
+    filter_terms = []
 
     auth = run_tshark(["-Y", "http.authorization"], pcap_path)
     if auth:
         findings.append("HIGH: cleartext HTTP Authorization header present — credentials sent unencrypted")
+        filter_terms.append("http.authorization")
 
     cleartext = run_tshark(["-Y", "ftp || telnet"], pcap_path)
     if cleartext:
         findings.append("MEDIUM: FTP or Telnet traffic detected — cleartext legacy protocol in use")
+        filter_terms.append("ftp || telnet")
 
     arp_replies = run_tshark(["-Y", "arp.opcode == 2", "-T", "fields", "-e", "arp.src.hwaddr", "-e", "arp.src.proto_ipv4"], pcap_path)
     ip_to_macs = {}
@@ -124,12 +128,40 @@ def suspicious_indicators(pcap_path):
     conflicting = {ip: macs for ip, macs in ip_to_macs.items() if len(macs) > 1}
     if conflicting:
         findings.append(f"HIGH: possible ARP spoofing — {len(conflicting)} IP(s) claimed by multiple MAC addresses: {conflicting}")
+        filter_terms.append("arp")
 
     if findings:
         for f in findings:
             print(f"  {f}")
     else:
         print("  None found in this capture.")
+    return filter_terms
+
+
+def build_display_filter(had_http, suspicious_filter_terms):
+    """Derives what --open-wireshark should actually show, instead of the
+    raw unfiltered capture: whatever this run's own suspicious-indicators
+    pass and HTTP-request check actually found, combined into one
+    display-filter expression. Validated with tshark -Y before ever being
+    handed to the GUI — same filter engine, so a syntax error here would
+    also mean a broken GUI launch, and this way it's caught first."""
+    terms = list(suspicious_filter_terms)
+    if had_http:
+        terms.append("http.request")
+    if not terms:
+        return None
+    return " || ".join(f"({t})" for t in terms)
+
+
+def validate_filter(display_filter, pcap_path):
+    """Runs the filter through tshark first - if it errors here, it would
+    have errored identically in the GUI (same filter parser), so this
+    catches a bad filter before ever launching Wireshark with one."""
+    result = subprocess.run(
+        [TSHARK, "-r", str(pcap_path)] + FORCE_ENABLE + ["-Y", display_filter, "-c", "1"],
+        capture_output=True, text=True, timeout=15,
+    )
+    return result.returncode == 0
 
 
 def main():
@@ -146,12 +178,20 @@ def main():
     top_conversations(pcap_path)
     dns_queries(pcap_path)
     tls_sni(pcap_path)
-    http_requests(pcap_path)
-    suspicious_indicators(pcap_path)
+    had_http = http_requests(pcap_path)
+    filter_terms = suspicious_indicators(pcap_path)
 
     if open_gui:
-        print(f"\nOpening {pcap_path} in Wireshark...")
-        subprocess.Popen([WIRESHARK, str(pcap_path)])
+        display_filter = build_display_filter(had_http, filter_terms)
+        if display_filter and validate_filter(display_filter, pcap_path):
+            print(f"\nOpening {pcap_path} in Wireshark, filtered to what this run actually "
+                  f"found: {display_filter}")
+            subprocess.Popen([WIRESHARK, str(pcap_path), "-Y", display_filter])
+        else:
+            if display_filter:
+                print(f"\n(Derived filter '{display_filter}' didn't validate — opening unfiltered instead.)")
+            print(f"Opening {pcap_path} in Wireshark...")
+            subprocess.Popen([WIRESHARK, str(pcap_path)])
 
 
 if __name__ == "__main__":
