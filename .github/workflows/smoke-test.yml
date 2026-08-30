@@ -1,0 +1,40 @@
+name: Smoke Test
+
+# Replaces the auto-suggested "Python Package using Conda" and "Pylint"
+# workflows, which were never adapted to this repo and failed on every
+# single push:
+#   - the conda workflow needed an environment.yml and a pytest suite
+#     that don't exist - this project is plain pip + requirements.txt,
+#     and verification here has always been live --self-test runs
+#     documented in the README, not a pytest suite
+#   - both ran on ubuntu-latest, but this project is fundamentally
+#     Windows-only (winreg, wmi, win32file, netsh/arp/schtasks calls
+#     throughout) - half the real dependencies (pywin32, wmi) can't
+#     even install on Linux
+#
+# This does the one check that's actually honest for this codebase and
+# matches how every commit in this repo has actually been verified:
+# install the real dependencies on a Windows runner, then byte-compile
+# every tracked .py file. py_compile checks syntax without executing
+# anything, so it never needs admin rights, real hardware state, or a
+# live network - the same "does it even parse" bar used by hand after
+# every change in this project, just automated.
+
+on: [push, pull_request]
+
+jobs:
+  compile-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Byte-compile every tracked Python file
+        shell: bash
+        run: python -m py_compile $(git ls-files '*.py')
