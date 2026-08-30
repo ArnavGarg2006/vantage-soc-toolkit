@@ -695,6 +695,47 @@ python baseline-detection/baseline_monitor.py --check
 python baseline-detection/baseline_monitor.py --self-test
 ```
 
+## Depth roadmap, item 2: MITRE ATT&CK CTI validation
+
+Every technique ID in `export_navigator_layer.py`'s `TECHNIQUES` list is a
+hand-typed string with a hand-typed comment — accurate when written, but
+with nothing checking it against reality as MITRE's own taxonomy evolves.
+This module closes that gap: it downloads the official, published
+enterprise-attack STIX bundle (the actual source of truth the real ATT&CK
+Navigator is built from) and cross-checks every one of this project's
+mapped techniques against it.
+
+| Module | What it does |
+|---|---|
+| [`detection-engineering/attack_cti_lookup.py`](detection-engineering/attack_cti_lookup.py) | `--validate` cross-checks all mapped technique IDs against MITRE's live official data (catches typos, deprecated IDs, name drift). `--lookup ID` pulls one technique's official name, tactic(s), and description |
+
+**Verified output — and a genuine, unplanned finding**: all 23 technique
+IDs this project claims are confirmed valid, official MITRE ATT&CK
+technique IDs — no typos, nothing deprecated. But the validation also
+surfaced something this project's own docstrings have silently drifted on:
+MITRE's live taxonomy no longer has a "Defense Evasion" tactic. It's been
+split into **Stealth** and **Defense Impairment**:
+
+```
+✓ T1027         Obfuscated Files or Information                 [stealth]
+✓ T1574.009     Path Interception by Unquoted Path               [stealth, execution]
+✓ T1036.005     Match Legitimate Resource Name or Location       [stealth]
+```
+
+Several modules in this project (`masquerade_detector.py` among them)
+still say "MITRE ATT&CK Defense Evasion tactic" in their own docstrings —
+technically referencing a tactic name the official source no longer uses.
+The technique IDs themselves are still completely correct; only the
+tactic *label* in this project's prose has drifted. This is exactly the
+kind of thing a hand-maintained comment can't catch on its own, and
+exactly why this tool exists — verified against the live source, not
+assumed from what the tactic used to be called.
+
+```bash
+python detection-engineering/attack_cti_lookup.py --validate
+python detection-engineering/attack_cti_lookup.py --lookup T1486
+```
+
 ## What's left (genuinely open, not roadmap filler)
 
 - Contain/Disrupt's network half still needs an elevated terminal to verify
@@ -717,10 +758,10 @@ python baseline-detection/baseline_monitor.py --self-test
   background services) — that's a deliberate scope boundary of a portfolio
   project, not an oversight.
 
-**Depth roadmap** — baseline-and-deviate detection is done (see above).
-Still queued: an IOC-enrichment pipeline chaining `domain_age_checker.py`
-and `phishing_url_analyzer.py` automatically against anything
-`exfil_demo.py`'s DLP catches; tighter ATT&CK sub-technique mapping in the
-Navigator export; and testing whether unprivileged Windows Event Log reads
-(not a new ETW trace — reading what's already logged) can layer on top of
-`fs_watcher.py` as another non-polling telemetry source.
+**Depth roadmap** — baseline-and-deviate detection and MITRE ATT&CK CTI
+validation are both done (see above). Still queued: an IOC-enrichment
+pipeline chaining `domain_age_checker.py` and `phishing_url_analyzer.py`
+automatically against anything `exfil_demo.py`'s DLP catches; and testing
+whether unprivileged Windows Event Log reads (not a new ETW trace —
+reading what's already logged) can layer on top of `fs_watcher.py` as
+another non-polling telemetry source.

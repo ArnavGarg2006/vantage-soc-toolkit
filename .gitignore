@@ -23,6 +23,10 @@ realtime-detection/scratch/
 # machine, same privacy reasoning as events.db above
 baseline-detection/baseline.db
 
+# Official MITRE ATT&CK STIX bundle - ~48MB downloaded cache, not source
+# we authored; attack_cti_lookup.py re-downloads it on first run
+detection-engineering/attack-stix/
+
 # Generated report - carries a fresh timestamp every run, would just be
 # repo-diff noise; regenerate with detection-engineering/generate_report.py
 detection-engineering/security_report.html
