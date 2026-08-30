@@ -880,3 +880,57 @@ automatically against anything `exfil_demo.py`'s DLP catches; and testing
 whether unprivileged Windows Event Log reads (not a new ETW trace —
 reading what's already logged) can layer on top of `fs_watcher.py` as
 another non-polling telemetry source.
+
+## AI/LLM security — this project's methodology, applied to AI systems
+
+A direct answer to "how does this project's approach make AI systems more
+robust": the same two patterns used throughout — heuristic red-flag
+scanning (`phishing_url_analyzer.py`) and baseline-and-deviate detection
+(`baseline_monitor.py`) — transfer essentially unchanged onto AI/LLM
+threats. This project maps to MITRE ATLAS (their ATT&CK equivalent for
+AI/ML systems) the same way everything else maps to ATT&CK/Shield — and
+every technique ID below was cross-checked against ATLAS's own published
+data before use, the same discipline `attack_cti_lookup.py` applies to
+ATT&CK IDs, not typed from memory and assumed correct.
+
+| Module | ATLAS mapping | What it does |
+|---|---|---|
+| [`ai-security/prompt_injection_detector.py`](ai-security/prompt_injection_detector.py) | AML.T0051 (LLM Prompt Injection) | Structural red-flag scanning of text before it reaches an LLM — override phrases, persona/jailbreak hijacks, system-prompt exfiltration framing, hidden zero-width Unicode characters, homoglyphs — the exact same shape as `phishing_url_analyzer.py`, applied to prompts instead of URLs |
+| [`ai-security/agent_baseline.py`](ai-security/agent_baseline.py) | AML.T0053 (AI Agent Tool Invocation) | The identical bigram-transition baseline-and-deviate methodology as `baseline_monitor.py`, applied to AI agent tool-call sequences instead of OS processes/ports — learns which tool-to-tool transitions are normal, flags a transition that's never happened before |
+
+**Verified output — prompt injection detector**: self-test against 4
+samples (benign, direct override, persona hijack, hidden zero-width
+Unicode) — all 4 classified correctly. The hidden-Unicode sample is worth
+calling out specifically: `"...sentence​​ignore all previous
+instructions​."` looks completely benign to a human eye, and the detector
+still caught both the embedded override phrase *and* the zero-width
+characters hiding it — `U+200B` present, correctly flagged, exactly the
+invisible-to-human/visible-to-model gap this check exists for.
+
+**Verified output — agent tool-call baseline**: learned from 6 realistic
+sample agent workflows (15 tool-call transitions total). A known-normal
+sequence (`read_file → edit_file → run_tests`) stayed clean. A sequence
+built to represent exfiltration-via-agent (`read_file → 
+read_credentials_file → send_http_request`) was correctly flagged on
+**both** transitions — neither `read_file → read_credentials_file` nor
+`read_credentials_file → send_http_request` had ever appeared in the
+learned baseline.
+
+**Honest scope note — stated plainly, not implied**: this project has no
+live AI agent framework integrated to hook into, so `agent_baseline.py`
+isn't learning from real production tool-call telemetry the way
+`baseline_monitor.py` learns from this machine's actual real processes.
+What's verified is the detection *logic* — genuinely correct, checked
+above — against realistic, hand-authored sample workflows standing in for
+live telemetry. Any real agent framework that logs `(agent_id, tool_name,
+timestamp)` per call is a direct integration point for `--learn`; that
+integration itself isn't built.
+
+```bash
+python ai-security/prompt_injection_detector.py --self-test
+python ai-security/prompt_injection_detector.py "some text to check"
+
+python ai-security/agent_baseline.py --self-test
+python ai-security/agent_baseline.py --learn
+python ai-security/agent_baseline.py --check read_file edit_file run_tests
+```
