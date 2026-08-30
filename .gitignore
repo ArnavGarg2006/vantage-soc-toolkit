@@ -19,6 +19,10 @@ shield-legitimize/scratch/
 event-bus/events.db
 realtime-detection/scratch/
 
+# Baseline store - real (process, port) inventory specific to this
+# machine, same privacy reasoning as events.db above
+baseline-detection/baseline.db
+
 # Generated report - carries a fresh timestamp every run, would just be
 # repo-diff noise; regenerate with detection-engineering/generate_report.py
 detection-engineering/security_report.html
