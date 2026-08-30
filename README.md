@@ -815,6 +815,40 @@ python shield-collect/scapy_pcap_analysis.py shield-collect/training-pcaps/<file
 python shield-collect/pcap_analysis.py shield-collect/training-pcaps/<file>.pcap
 ```
 
+## Depth roadmap, item 4: certificate transparency search
+
+From the same "Open Technical Databases" OSINT material as WHOIS
+(`domain_age_checker.py`): every publicly-trusted TLS certificate is now
+permanently logged in certificate transparency logs — a browser
+requirement, not optional — and [crt.sh](https://crt.sh/) makes those
+logs searchably public. That finds every subdomain a domain has ever
+gotten a certificate for, a passive technique `dns_recon.py`'s
+brute-force enumeration can't match since it only finds subdomains it
+happens to guess.
+
+| Module | ATT&CK mapping | What it does |
+|---|---|---|
+| [`reconnaissance/cert_transparency.py`](reconnaissance/cert_transparency.py) | T1596.003 (Search Open Websites/Domains: Digital Certificates) | Queries crt.sh's public JSON API for a domain, deduplicates every subject-alternative-name across every certificate found into a unique hostname list |
+
+**Honest verification status — this one didn't fully pass, and that's
+recorded rather than hidden**: crt.sh is a free, community-run service
+and was genuinely down at build time — every endpoint on the site,
+including the homepage, returned `502 Bad Gateway`, independent of query
+parameters or user-agent, confirmed with multiple retries over several
+minutes. What *was* verified live: the failure-handling path (a real
+`502` correctly caught and reported without crashing), and the JSON
+parsing/deduplication logic against the real crt.sh response shape via a
+mocked response matching their actual API structure — 4 mock certificate
+entries correctly collapsed to 3 unique hostnames, with an unrelated
+domain correctly filtered out. Marked `50` (not `100`) in the Navigator
+export for exactly this reason: the logic is verified, a live successful
+query against the real service is not yet confirmed. Worth re-running
+`cert_transparency.py` once crt.sh recovers.
+
+```bash
+python reconnaissance/cert_transparency.py example.com
+```
+
 ## What's left (genuinely open, not roadmap filler)
 
 - Contain/Disrupt's network half still needs an elevated terminal to verify
@@ -837,8 +871,10 @@ python shield-collect/pcap_analysis.py shield-collect/training-pcaps/<file>.pcap
   background services) — that's a deliberate scope boundary of a portfolio
   project, not an oversight.
 
-**Depth roadmap** — baseline-and-deviate detection and MITRE ATT&CK CTI
-validation are both done (see above). Still queued: an IOC-enrichment
+**Depth roadmap** — baseline-and-deviate detection, MITRE ATT&CK CTI
+validation, real training pcap integration, and certificate transparency
+search are all done (see above; the last one pending a live re-verify
+once crt.sh recovers from its outage). Still queued: an IOC-enrichment
 pipeline chaining `domain_age_checker.py` and `phishing_url_analyzer.py`
 automatically against anything `exfil_demo.py`'s DLP catches; and testing
 whether unprivileged Windows Event Log reads (not a new ETW trace —

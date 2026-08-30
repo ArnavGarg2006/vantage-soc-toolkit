@@ -33,6 +33,15 @@
       "showSubtechniques": false
     },
     {
+      "techniqueID": "T1596.003",
+      "score": 50,
+      "color": "",
+      "comment": "reconnaissance/cert_transparency.py - crt.sh certificate transparency search; parsing logic verified against the real response shape and the failure path verified live, but crt.sh itself hit a full 502 outage at build time so a live successful query is not yet confirmed",
+      "enabled": true,
+      "metadata": [],
+      "showSubtechniques": false
+    },
+    {
       "techniqueID": "T1082",
       "score": 100,
       "color": "",
