@@ -211,6 +211,15 @@
       "enabled": true,
       "metadata": [],
       "showSubtechniques": false
+    },
+    {
+      "techniqueID": "T1557.002",
+      "score": 100,
+      "color": "",
+      "comment": "adversary-in-the-middle/arp_spoof_demo.py - Scapy-crafted spoofed ARP reply against a real (IP, MAC) baseline from this machine's own ARP cache, conflicting-mapping detector caught it, verified",
+      "enabled": true,
+      "metadata": [],
+      "showSubtechniques": false
     }
   ],
   "gradient": {

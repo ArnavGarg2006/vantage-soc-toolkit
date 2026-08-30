@@ -48,6 +48,7 @@ TECHNIQUES = [
     ("T1005", 100, "collection/collection_demo.py - sensitive-filename discovery in own scratch dir, verified (decoy filenames correctly ignored)"),
     ("T1074.001", 100, "collection/collection_demo.py - staging-burst hunter (>=3 files in a new directory), verified"),
     ("T1041", 100, "exfiltration/exfil_demo.py - localhost DLP-style inspector catching card/SSN-shaped patterns in outbound POST bodies, verified"),
+    ("T1557.002", 100, "adversary-in-the-middle/arp_spoof_demo.py - Scapy-crafted spoofed ARP reply against a real (IP, MAC) baseline from this machine's own ARP cache, conflicting-mapping detector caught it, verified"),
 ]
 
 
