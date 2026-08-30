@@ -647,6 +647,54 @@ python packet-crafting/craft_packets.py --show-tcp
 python packet-crafting/craft_packets.py --modify-port 8080
 ```
 
+## Depth roadmap, item 1: baseline-and-deviate detection
+
+Every fixed-rule detector in this project (`process_monitor.py`'s LOLBin
+list, `lan_attack_surface.py`'s port list) flags KNOWN-bad patterns —
+useful, but blind to something that looks completely legitimate on its own
+and simply has never run on this machine before. This is the complementary
+approach: learn what's actually normal for *this specific machine* across
+repeated real observations, persisted durably in SQLite (same discipline
+as `event-bus/events.db`), then flag anything that doesn't match.
+
+| Module | Shield mapping | What it does |
+|---|---|---|
+| [`baseline-detection/baseline_monitor.py`](baseline-detection/baseline_monitor.py) | Shield Detect (DTE0007), same tactic as `process_monitor.py` | `--learn` folds one real snapshot (process identity + listening ports) into an accumulating baseline with an observation count per item. `--check` flags anything with zero prior observations as genuinely new |
+
+**Verified output**: the first self-test run immediately surfaced a real
+usability bug, not a hypothetical one — with only 2 `--learn` passes, all
+137 real processes and 18 real ports on this machine legitimately hadn't
+cleared the trust threshold yet, so `--check` printed 150+ "still
+establishing trust" lines that buried the two things that actually
+mattered. Fixed by summarizing low-trust items as a single count instead
+of one line per item — a real fix to reporting, not to the detection logic,
+which was already correct.
+
+After the fix, `--self-test` (learns twice from real ambient state, spawns
+a genuinely novel temp-copied executable and a demo listening socket on
+port 54329, checks, cleans up):
+
+```
+⚠️  MEDIUM: Process never seen before on this machine: totally_normal_tool.exe (C:\...\pycyber_baseline_10tbl4o4\totally_normal_tool.exe)
+⚠️  HIGH: New listening port never seen before: 54329
+(155 item(s) still establishing trust — fewer than 3 observations, not flagged individually)
+
+Self-test PASSED
+```
+
+And a genuinely organic finding, unprompted: running `--learn` then
+`--check` back-to-back in separate terminal invocations caught
+`tail.exe` (Git's bundled coreutils binary) as **never seen before** —
+correct, since that was its actual first-ever invocation on this machine,
+surfaced by a real, unplanned command during this verification pass, not
+a staged example.
+
+```bash
+python baseline-detection/baseline_monitor.py --learn
+python baseline-detection/baseline_monitor.py --check
+python baseline-detection/baseline_monitor.py --self-test
+```
+
 ## What's left (genuinely open, not roadmap filler)
 
 - Contain/Disrupt's network half still needs an elevated terminal to verify
@@ -669,13 +717,10 @@ python packet-crafting/craft_packets.py --modify-port 8080
   background services) — that's a deliberate scope boundary of a portfolio
   project, not an oversight.
 
-**Depth roadmap** (queued, not yet built): baseline-and-deviate detection
-(learn *this machine's* normal process/network/service state across
-repeated runs — now finally possible with durable history — and flag
-deviations from that learned baseline instead of only fixed heuristics);
-an IOC-enrichment pipeline chaining `domain_age_checker.py` and
-`phishing_url_analyzer.py` automatically against anything `exfil_demo.py`'s
-DLP catches; tighter ATT&CK sub-technique mapping in the Navigator export;
-and testing whether unprivileged Windows Event Log reads (not a new ETW
-trace — reading what's already logged) can layer on top of `fs_watcher.py`
-as another non-polling telemetry source.
+**Depth roadmap** — baseline-and-deviate detection is done (see above).
+Still queued: an IOC-enrichment pipeline chaining `domain_age_checker.py`
+and `phishing_url_analyzer.py` automatically against anything
+`exfil_demo.py`'s DLP catches; tighter ATT&CK sub-technique mapping in the
+Navigator export; and testing whether unprivileged Windows Event Log reads
+(not a new ETW trace — reading what's already logged) can layer on top of
+`fs_watcher.py` as another non-polling telemetry source.
