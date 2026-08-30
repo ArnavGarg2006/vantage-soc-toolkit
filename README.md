@@ -597,6 +597,56 @@ executions each), and `fs_watcher` fired once from the realtime demo — proof
 that the event bus, the wired detectors, both scorecards, and the report
 generator all genuinely cooperate over real HTTP, not just individually.
 
+## Scapy, actually used — three ways, not just for ARP sweeps
+
+Scapy already backed the ARP sweep in `local_discovery.py`/`lan_attack_surface.py`
+and the live capture in `packet_capture.py`, but nothing yet exercised
+Scapy's own analysis (`rdpcap()`, `.show()`) or its packet-construction side
+(build from layers, modify a field). These three modules close that gap.
+
+| Module | ATT&CK/Shield mapping | What it does |
+|---|---|---|
+| [`shield-collect/scapy_pcap_analysis.py`](shield-collect/scapy_pcap_analysis.py) | Shield Collect (DTE0002) | Pure-Python pcap analysis via `rdpcap()` — protocol summary, top talkers, cleartext-HTTP/legacy-port suspicious indicators, and a `--show N` layer drill-down — no tshark/Wireshark install required, complementing (not replacing) `pcap_analysis.py`'s deeper tshark-powered version |
+| [`adversary-in-the-middle/arp_spoof_demo.py`](adversary-in-the-middle/arp_spoof_demo.py) | ATT&CK Adversary-in-the-Middle (T1557.002) | Reads a real `(IP, MAC)` pair from this machine's actual ARP cache, crafts a spoofed conflicting ARP reply with Scapy — built and analyzed entirely in memory, **never sent** with `sendp()`/`send()` — and a real detector flags the conflicting mapping |
+| [`packet-crafting/craft_packets.py`](packet-crafting/craft_packets.py) | Scapy fundamentals (build + modify) | Builds a DNS query and a TCP SYN packet from layers (`IP/UDP/DNS`, `IP/TCP`), then modifies a field on an already-built packet — every check verified against the packet object itself, no network I/O at all |
+
+### Verified output
+
+**Scapy pcap analysis**: ran against the same real capture documented in
+Phase 1 (`capture_1787836470.pcap`) — protocol counts came back
+**35 TCP / 21 UDP / 3 ARP**, an exact match against the numbers `tshark`
+reported for that same file back in Phase 1. `--show 5` correctly
+drilled into packet 5's Ethernet/IP/TCP layers.
+
+**ARP spoofing**: read this machine's real gateway entry from `arp -a`
+(`192.168.1.1 -> 78:17:35:19:df:40`), fed it to the detector as the
+legitimate baseline (no alert — correct, first sighting), then crafted a
+spoofed reply claiming the same IP now belongs to `de:ad:be:ef:13:37`.
+The detector caught the conflict immediately: `⚠️ HIGH: 192.168.1.1 was
+78:17:35:19:df:40, now claimed by de:ad:be:ef:13:37 — conflicting ARP
+reply, classic cache-poisoning signature`.
+
+**Packet crafting**: built a DNS query (verified `qname=example.com.`,
+targeting UDP/53) and a TCP SYN packet (verified `flags=S`, `dport=80`),
+then modified the SYN packet's destination port to 8080 and confirmed the
+change on the packet object itself (`dport before: 80, after: 8080`) —
+every claim checked with an assertion, not just printed.
+
+**Navigator export**: re-ran with T1557.002 added — now **23 techniques**
+mapped, JSON round-trip validated.
+
+```bash
+python shield-collect/scapy_pcap_analysis.py                 # most recent capture
+python shield-collect/scapy_pcap_analysis.py --show 5 [file]  # layer drill-down
+
+python adversary-in-the-middle/arp_spoof_demo.py --self-test
+
+python packet-crafting/craft_packets.py --self-test
+python packet-crafting/craft_packets.py --show-dns
+python packet-crafting/craft_packets.py --show-tcp
+python packet-crafting/craft_packets.py --modify-port 8080
+```
+
 ## What's left (genuinely open, not roadmap filler)
 
 - Contain/Disrupt's network half still needs an elevated terminal to verify
