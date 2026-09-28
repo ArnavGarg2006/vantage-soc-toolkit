@@ -92,7 +92,13 @@ def hunt_mass_file_change(before, after):
 
     new_ext_count = after.get(ENCRYPTED_EXT, 0)
     if new_ext_count >= DUMMY_FILE_COUNT * 0.8:
-        msg = f"{new_ext_count} files changed to '{ENCRYPTED_EXT}' in this pass — mass extension change, ransomware signature"
+        # The affected directory belongs in the alert, not just the count.
+        # Found by wiring soar/playbook_runner.py to this event: the
+        # ransomware-file-response playbook wants to YARA-scan what was hit,
+        # and an alert saying "6 files changed" without saying where is not
+        # something automation (or an analyst) can act on.
+        msg = (f"{new_ext_count} files changed to '{ENCRYPTED_EXT}' in this pass — "
+               f"mass extension change, ransomware signature — affected path: {SCRATCH_DIR}")
         print(f"  ⚠️  HIGH: {msg}")
         emit(source="ransomware_sim", technique_id="T1486", severity="HIGH", message=msg)
     else:

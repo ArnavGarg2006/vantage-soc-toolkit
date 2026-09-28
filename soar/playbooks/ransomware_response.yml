@@ -1,0 +1,16 @@
+name: ransomware-file-response
+description: >
+  A mass-encryption alert is the one case where a file-level scan is worth
+  running automatically: YARA over the affected directory confirms whether
+  what is on disk actually looks encrypted, turning a behavioral signal
+  into a file-level one. Observe-only - this never quarantines, kills or
+  deletes anything, consistent with the project's no-destructive-action rule.
+
+trigger:
+  technique_id: T1486
+  min_severity: HIGH
+
+actions:
+  - extract_indicators
+  - yara_scan
+  - open_case

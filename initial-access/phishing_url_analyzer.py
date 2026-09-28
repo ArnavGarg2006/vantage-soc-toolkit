@@ -102,6 +102,11 @@ def analyze(url):
         print(f"  [{severity}] {reason}")
         emit(source="phishing_url_analyzer", technique_id="T1566", severity=severity, message=f"{url}: {reason}")
 
+    # Returned as well as printed so soar/playbook_runner.py can act on the
+    # result programmatically instead of scraping stdout. Printing is
+    # unchanged, so the CLI behaves exactly as before.
+    return findings
+
 
 def main():
     urls = sys.argv[1:] or ["https://www.paypa1.com/login", "http://192.168.1.1/update", "https://bit.ly/3xample"]

@@ -55,16 +55,28 @@ class ExfilHandler(BaseHTTPRequestHandler):
 
         cc_matches = CC_PATTERN.findall(body)
         ssn_matches = SSN_PATTERN.findall(body)
+
+        # The destination belongs in the alert. Found by wiring
+        # soar/playbook_runner.py to these events: the dlp-exfil-enrichment
+        # playbook's whole job is to enrich the indicators in a DLP hit, and
+        # the original alert text carried none — it said what leaked but not
+        # where to, so there was nothing to age, resolve or reputation-check.
+        # That made the enrichment chain the project README had queued
+        # ("chain domain_age_checker and phishing_url_analyzer against
+        # anything the DLP catches") a no-op for a reason that had nothing
+        # to do with the chain itself.
+        dest = f"http://{self.headers.get('Host', HOST + ':' + str(PORT))}{self.path}"
+
         if cc_matches:
-            msg = f"card-number-shaped pattern in outbound body: {cc_matches}"
+            msg = f"card-number-shaped pattern in outbound body to {dest}: {cc_matches}"
             findings.append(("HIGH", msg))
             emit(source="exfil_demo", technique_id="T1041", severity="HIGH", message=msg)
         if ssn_matches:
-            msg = f"SSN-shaped pattern in outbound body: {ssn_matches}"
+            msg = f"SSN-shaped pattern in outbound body to {dest}: {ssn_matches}"
             findings.append(("HIGH", msg))
             emit(source="exfil_demo", technique_id="T1041", severity="HIGH", message=msg)
         if length > 500:
-            msg = f"unusually large outbound POST body ({length} bytes)"
+            msg = f"unusually large outbound POST body ({length} bytes) to {dest}"
             findings.append(("LOW", msg))
             emit(source="exfil_demo", technique_id="T1041", severity="LOW", message=msg)
 

@@ -1,0 +1,18 @@
+name: dlp-exfil-enrichment
+description: >
+  When the DLP inspector in exfiltration/exfil_demo.py flags sensitive data
+  in an outbound body, automatically pull every indicator out of the alert
+  and enrich it, then open a case with the enrichment attached. This is the
+  pipeline the project README listed as still-queued: "chaining
+  domain_age_checker.py and phishing_url_analyzer.py automatically against
+  anything exfil_demo.py's DLP catches".
+
+trigger:
+  source: exfil_demo
+  min_severity: HIGH
+
+actions:
+  - extract_indicators
+  - analyze_urls          # offline: pure string analysis, no network
+  - check_domain_age      # network: WHOIS, skipped under --offline
+  - open_case

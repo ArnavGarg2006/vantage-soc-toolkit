@@ -111,7 +111,7 @@ DASHBOARD_HTML = """<!doctype html>
 </style></head>
 <body>
   <h1>ATT&amp;CK/Shield Labs — Live Event Bus</h1>
-  <div class="sub"><span id="count">0</span> event(s) received — polling every 2s — <a href="/events.json">raw JSON</a></div>
+  <div class="sub"><span id="count">0</span> event(s) received — polling every 2s — <a href="/cases">cases</a> · <a href="/events.json">raw JSON</a></div>
   <table>
     <thead><tr><th>Time</th><th>Severity</th><th>Source</th><th>Technique</th><th>Message</th></tr></thead>
     <tbody id="rows"><tr><td class="empty" colspan="5">Waiting for events…</td></tr></tbody>
@@ -136,6 +136,81 @@ refresh();
 setInterval(refresh, 2000);
 </script>
 </body></html>"""
+
+
+CASES_HTML = """<!doctype html>
+<html><head><meta charset="utf-8"><title>ATT&amp;CK/Shield Labs — Cases</title>
+<style>
+  body { background:#0d1117; color:#c9d1d9; font-family: Consolas, monospace; margin:0; padding:24px; }
+  h1 { font-size:20px; margin:0 0 4px 0; }
+  .sub { color:#8b949e; font-size:13px; margin-bottom:20px; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; padding:8px 10px; border-bottom:1px solid #30363d; color:#8b949e; font-size:12px; text-transform:uppercase; }
+  td { padding:8px 10px; border-bottom:1px solid #21262d; font-size:13px; vertical-align:top; }
+  tr:hover { background:#161b22; }
+  .pill { font-weight:700; padding:2px 8px; border-radius:4px; font-size:11px; display:inline-block; }
+  .empty { color:#8b949e; padding:24px 10px; text-align:center; }
+  #count { color:#58a6ff; }
+  a { color:#58a6ff; }
+</style></head>
+<body>
+  <h1>ATT&amp;CK/Shield Labs — Cases</h1>
+  <div class="sub"><span id="count">0</span> case(s) — polling every 3s —
+    <a href="/dashboard">live events</a> · <a href="/cases.json">raw JSON</a><br>
+    Built by case-management/case_manager.py --auto-triage and by SOAR playbooks.
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Severity</th><th>Status</th><th>Events</th><th>Assignee</th><th>Disposition</th><th>Opened</th><th>Title</th></tr></thead>
+    <tbody id="rows"><tr><td class="empty" colspan="8">No cases yet — run case_manager.py --auto-triage</td></tr></tbody>
+  </table>
+<script>
+async function refresh() {
+  try {
+    const res = await fetch('/cases.json');
+    const data = await res.json();
+    document.getElementById('count').textContent = data.length;
+    const rows = document.getElementById('rows');
+    if (data.length === 0) { rows.innerHTML = '<tr><td class="empty" colspan="8">No cases yet — run case_manager.py --auto-triage</td></tr>'; return; }
+    const sevColors = {HIGH:'#ff5c5c', MEDIUM:'#ffb84d', LOW:'#7fb3ff', INFO:'#9aa0a6'};
+    const stColors  = {OPEN:'#ff5c5c', IN_PROGRESS:'#ffb84d', CLOSED:'#2cb67d'};
+    rows.innerHTML = data.map(c => {
+      const sc = sevColors[c.severity] || '#9aa0a6';
+      const tc = stColors[c.status] || '#9aa0a6';
+      const t = new Date(c.opened_at * 1000).toLocaleString();
+      const pill = (txt, col) => `<span class="pill" style="background:${col}22;color:${col};border:1px solid ${col}55">${txt}</span>`;
+      return `<tr><td>${c.id}</td><td>${pill(c.severity, sc)}</td><td>${pill(c.status, tc)}</td>`
+           + `<td>${c.event_count}</td><td>${c.assignee||'-'}</td><td>${c.disposition||'-'}</td>`
+           + `<td>${t}</td><td>${c.title}</td></tr>`;
+    }).join('');
+  } catch (e) { /* collector may be mid-restart, just retry next tick */ }
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body></html>"""
+
+
+def read_cases():
+    """Read the case table the case manager writes to the same database.
+
+    The collector never creates or modifies cases — case-management/
+    owns that, and this is a read-only view. If the tables don't exist
+    yet (case_manager.py has never been run) this returns an empty list
+    rather than erroring, so the dashboard degrades to "no cases yet"
+    instead of 500-ing.
+    """
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT c.id, c.title, c.status, c.severity, c.assignee, c.disposition, "
+            "c.opened_at, (SELECT COUNT(*) FROM case_events ce WHERE ce.case_id = c.id) "
+            "AS event_count FROM cases c ORDER BY c.id DESC"
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except sqlite3.Error:
+        return []
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -178,6 +253,20 @@ class Handler(BaseHTTPRequestHandler):
             body = DASHBOARD_HTML.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif path == "/cases":
+            body = CASES_HTML.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif path == "/cases.json":
+            body = json.dumps(read_cases()).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -242,6 +331,7 @@ def main():
         return
     print(f"Event bus collector listening on http://{HOST}:{PORT}")
     print(f"Dashboard: http://{HOST}:{PORT}/dashboard")
+    print(f"Cases:     http://{HOST}:{PORT}/cases — populated by case-management/case_manager.py")
     print(f"History: {DB_PATH} — query it with event-bus/query_history.py")
     print("Waiting for events from any wired detector (Ctrl+C to stop)...\n")
     server = run_server()
