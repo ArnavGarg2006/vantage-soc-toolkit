@@ -9,3 +9,4 @@ wmi>=1.5.1
 pywin32>=306
 python-whois>=0.9.4
 mitreattack-python>=6.0.0
+yara-python>=4.5.0

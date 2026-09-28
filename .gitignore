@@ -19,6 +19,12 @@ shield-legitimize/scratch/
 event-bus/events.db
 realtime-detection/scratch/
 
+# YARA scanner working directories - --self-test generates its sample
+# corpus here and removes it on exit; demo-evidence/ is a staging folder
+# for scanning real artifacts. Both are regenerated, never source.
+dfir/scratch/
+dfir/demo-evidence/
+
 # Baseline store - real (process, port) inventory specific to this
 # machine, same privacy reasoning as events.db above
 baseline-detection/baseline.db

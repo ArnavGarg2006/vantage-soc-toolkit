@@ -864,7 +864,11 @@ python reconnaissance/cert_transparency.py example.com
 - Everything else on the original ATT&CK/Shield list has at least one working,
   verified module now, and the event bus gives all of Phase 5 one shared,
   live-verified dashboard whose history now genuinely survives a restart
-  (SQLite-backed, see above) — that specific gap is closed. Real gaps that
+  (SQLite-backed, see above) — that specific gap is closed. Alerts on that
+  bus now also have a lifecycle (assign, correlate, close with a
+  disposition) and can trigger automated enrichment playbooks — see the
+  SOC-stack section at the end of this README, which is also explicit about
+  which tools on the standard SOC list genuinely can't be built here. Real gaps that
   remain are depth, not breadth: none of this is a full EDR (no kernel-level
   hooks without elevation, no persistence across reboots *for the detectors
   themselves* — the event history persists, the detectors don't run as
@@ -874,12 +878,15 @@ python reconnaissance/cert_transparency.py example.com
 **Depth roadmap** — baseline-and-deviate detection, MITRE ATT&CK CTI
 validation, real training pcap integration, and certificate transparency
 search are all done (see above; the last one pending a live re-verify
-once crt.sh recovers from its outage). Still queued: an IOC-enrichment
-pipeline chaining `domain_age_checker.py` and `phishing_url_analyzer.py`
-automatically against anything `exfil_demo.py`'s DLP catches; and testing
-whether unprivileged Windows Event Log reads (not a new ETW trace —
-reading what's already logged) can layer on top of `fs_watcher.py` as
-another non-polling telemetry source.
+once crt.sh recovers from its outage). The IOC-enrichment pipeline
+chaining `domain_age_checker.py` and `phishing_url_analyzer.py`
+automatically against anything `exfil_demo.py`'s DLP catches **is now
+done** — it's the `dlp-exfil-enrichment` playbook in
+[`soar/playbooks/`](soar/playbooks/); see the SOC-stack section at the end
+of this README, including the three real bugs in existing modules that
+building it surfaced. Still queued: testing whether unprivileged Windows
+Event Log reads (not a new ETW trace — reading what's already logged) can
+layer on top of `fs_watcher.py` as another non-polling telemetry source.
 
 ## AI/LLM security — this project's methodology, applied to AI systems
 
@@ -993,3 +1000,306 @@ python shield-collect/pcap_analysis.py --open-wireshark [file]   # now filtered
 python shield-collect/export_wireshark_colors.py
 # then in Wireshark: View > Coloring Rules... > Import > pycyber-colorfilters
 ```
+
+## The SOC stack, honestly scoped — YARA, case management, SOAR
+
+The standard "SOC tool stack" list looks like this: TIP (MISP, OpenCTI,
+VirusTotal), DFIR (Autopsy, YARA, Redline, FTK), vulnerability scanners
+(Nessus, OpenVAS), SOAR (Cortex XSOAR, Swimlane), case management
+(TheHive, ServiceNow SecOps).
+
+**Most of that list cannot honestly be "implemented" here, and this
+section starts by saying which.** Seven of those ten are server platforms
+or licensed products. There is no MISP instance, no TheHive server, no
+XSOAR tenant and no Nessus license behind this repo. Writing API clients
+against services that aren't running anywhere would produce exactly what
+this project has refused to ship from the first commit: code whose output
+was never verified, because it can't be. An unrunnable `misp_client.py`
+would cost more credibility than it adds.
+
+So the three things below are split by what's actually true of each:
+
+| Added | What it honestly is |
+|---|---|
+| [`dfir/yara_scanner.py`](dfir/yara_scanner.py) + [`dfir/rules/`](dfir/rules/) | **A real integration of a real tool.** YARA is the one product on that list that installs with pip and runs entirely locally, so it's genuinely integrated — not simulated. |
+| [`case-management/case_manager.py`](case-management/case_manager.py) | **The function TheHive/ServiceNow perform, not an integration with either.** Built on the SQLite store the event bus already writes to. |
+| [`soar/playbook_runner.py`](soar/playbook_runner.py) + [`soar/playbooks/`](soar/playbooks/) | **The function XSOAR/Swimlane perform, not an integration with either.** Trigger-matched playbooks over event-bus alerts. |
+
+Deliberately skipped, with reasons: **MISP/OpenCTI** (no instance to
+verify against), **Nessus/OpenVAS** (license or a full server stack;
+`lateral-movement/lan_attack_surface.py` already covers the honest local
+slice), **Autopsy/Redline/FTK** (GUI forensics suites — nothing to
+integrate programmatically), **VirusTotal** (buildable and a natural fit
+with `cert_transparency.py`'s existing live-lookup pattern, but it needs
+an API key, so it could never sit in the same verified-in-session tier as
+everything else here — left out rather than shipped at a lower evidence
+bar).
+
+### YARA — the file-side counterpart to the Sigma rules
+
+This project already exports real Sigma rules from its process-monitor
+heuristics. Sigma covers what shows up in *logs*; YARA covers what shows
+up on *disk*. Two of the five rules are deliberately the same heuristic
+as their Sigma equivalent expressed against file content, and carry a
+`sigma_equivalent:` field in their metadata pointing at it — that's how
+the two formats divide the work in a real pipeline.
+
+What makes the rules mean something: **every rule is verified against a
+file that should match it *and* a benign control file that should not, in
+the same run.** A rule that has only ever been eyeballed is a guess. And
+the true-positive samples aren't invented for the test — they're the
+artifacts this repo's own demos actually produce, including a real
+AES-256 EAX blob built with the identical construction
+`impact/ransomware_sim.py` uses.
+
+#### Verified output — YARA
+
+`python dfir/yara_scanner.py --self-test`, yara-python 4.5.4:
+
+```
+  [PASS] sample_encoded_ps.txt              -> PyCyber_Encoded_PowerShell_Command
+  [PASS] sample_lolbin_cradle.txt           -> PyCyber_LOLBin_Download_Cradle
+  [PASS] sample_staged_data.txt             -> PyCyber_Staged_Sensitive_Data
+  [PASS] sample_ransom_note.txt             -> PyCyber_Ransom_Note
+  [PASS] sample_file.txt.encrypted          -> PyCyber_High_Entropy_Blob
+  [PASS] control_benign.txt                 -> no match (control)
+
+  Benign control matched 0 rule(s) (correct)
+  Self-test PASSED
+```
+
+**A real false-positive problem, found by running it rather than reading
+it.** The first version of the scanner skipped `.yar`/`.yml` files on the
+theory that detection content self-matches. Pointing `--scan` at this
+repo then reported **9 HIGH matches against the project itself** —
+because `shield-detect/process_monitor.py`,
+`detection-engineering/export_sigma_rules.py` and the scanner's own
+sample generator are `.py` files that embed the very strings they detect.
+That's not a bug in YARA and it isn't a reason to weaken the rules; it's
+the ordinary exclusion problem every real deployment hits when the
+scanner walks over its own signatures. Fixed the way real deployments fix
+it — an explicit exclusion list — and the count of suppressed files is
+**always printed, never silently dropped**, because an exclusion you
+can't see is indistinguishable from a rule that failed to fire:
+
+```
+  45 file(s) scanned, 0 match(es).
+  11 file(s) excluded as detection content (rules and detectors embed the
+  strings they detect — --include-detection-content to scan them anyway)
+```
+
+`--include-detection-content` turns the exclusion off so you can watch
+the self-match happen instead of taking the explanation on trust.
+
+**Stated caveat, not buried:** `PyCyber_High_Entropy_Blob` is
+corroboration, never a verdict. Compressed archives, media and installers
+are legitimately high-entropy. It's scoped to small files, reported at
+MEDIUM, and the scanner prints that caveat inline every time it fires.
+
+### Case management — the lifecycle the event bus never had
+
+After Phase 5, every detector could emit an alert, every alert landed in
+one dashboard, and the history survived a restart. But **an alert is not
+an investigation.** Nothing in `events.db` could be assigned to a person,
+grouped with the other alerts from the same incident, marked a false
+positive, or closed. A SOC that can only say "here are 400 alerts" has a
+firehose, not a process — and the metric that actually matters (how long
+to close one, and how many turn out to be nothing) wasn't computable at
+all.
+
+Cases live in the **same** database as events, not a second store: a case
+you can't join to its causing events in one query is a spreadsheet.
+Closing **requires** a disposition — closing without one throws away the
+only feedback signal detection engineering gets, so the CLI refuses it as
+a hard error rather than defaulting.
+
+`--auto-triage` groups un-cased alerts by `(source, technique)` inside a
+time window, and is **idempotent** — an event already linked to a case is
+never pulled into a second one, so it's safe to run on a timer.
+
+The collector now also serves a read-only `/cases` view alongside
+`/dashboard` (verified live: `GET /cases` → 200, `GET /cases.json` → 200
+with a complete schema). The collector never writes cases; `case-management/`
+owns that, and the view degrades to "no cases yet" if the tables don't
+exist rather than erroring.
+
+#### Verified output — case management
+
+```
+  [PASS] auto-triage created 3 cases from 6 seeded events
+  [PASS] 5 eligible events linked, LOW one left out
+  [PASS] LOW-severity event stayed un-cased
+  [PASS] time window split the same technique into separate cases
+  [PASS] re-running auto-triage changed nothing (idempotent)
+  [PASS] assign -> in progress -> close with disposition persisted
+  [PASS] close with an invalid disposition is rejected
+```
+
+Against real cases built from a live collector run:
+
+```
+By disposition (closed cases only):
+  BENIGN_TRUE_POSITIVE      1   mean time to close 22s
+
+  False-positive rate: 0/1 = 0% of closed cases
+```
+
+That false-positive rate is the number the detection-engineering half of
+this project actually needs and **could not compute at all** before cases
+existed.
+
+**A real bug in the self-test itself, found and fixed.** The first
+version diffed the case table before and after `--auto-triage`. That
+passed on an empty database and broke the moment it ran against one
+holding real un-cased alerts: `auto_triage` processes the whole history,
+so the diff swept up cases built from *real* events — and the cleanup
+then **deleted them, while printing "real history untouched."** A
+self-test that can destroy the data it promises not to touch is worse
+than no self-test. Now every assertion and the cleanup are scoped to
+cases that actually contain a marker event, and the test passes
+repeatedly against a database full of real history.
+
+### SOAR — closing a gap this README had listed as open
+
+The previous version of this README listed as still-queued: *"an
+IOC-enrichment pipeline chaining `domain_age_checker.py` and
+`phishing_url_analyzer.py` automatically against anything
+`exfil_demo.py`'s DLP catches."* That chain existed only as something a
+human could do by hand in three terminals. It's a playbook now.
+
+Playbooks are **YAML, not Python** — a playbook is configuration an
+analyst should be able to change without touching code, and keeping them
+declarative is what makes trigger matching testable in isolation. A
+playbook referencing an action that doesn't exist is refused at load time,
+because a silent no-op is the worst failure mode automation can have.
+
+Two properties make it safe to leave running:
+
+- **Idempotent.** Every `(event, playbook)` pair that runs is recorded in
+  a `soar_runs` table, so `--watch` polls without redoing work and a crash
+  mid-run resumes cleanly.
+- **Observe-only.** Actions enrich, correlate and open cases. Nothing
+  quarantines a file, kills a process or blocks an address — the same
+  no-destructive-action boundary the rest of this project holds to. A real
+  SOAR would do containment; this one deliberately doesn't, and that's a
+  scope decision, not an unfinished feature.
+
+**Network honesty:** `check_domain_age` does a live WHOIS lookup. Every
+other action is fully local. `--offline` skips the network actions and
+says so — which is also how `--self-test` runs, so the test asserts *real*
+enrichment output (URL analysis is pure string work) instead of asserting
+something that only holds when a registry cooperates.
+
+#### Verified output — SOAR, end to end against a live collector
+
+```
+  ▸ dlp-exfil-enrichment on event #31 [HIGH] exfil_demo
+      extract_indicators   urls: http://127.0.0.1:8766/upload
+      extract_indicators   ips: 127.0.0.1
+      analyze_urls         -> [HIGH] host is a raw IP address (127.0.0.1), not a domain name
+      check_domain_age     skipped: --offline (WHOIS needs outbound network)
+      open_case            opened case #16 [HIGH] and linked event #31
+
+  ▸ ransomware-file-response on event #32 [HIGH] ransomware_sim
+      extract_indicators   paths: /home/user/vantage-soc-toolkit/dfir/demo-evidence
+      yara_scan            READ_ME_NOW.txt -> PyCyber_Ransom_Note
+      yara_scan            report.docx.encrypted -> PyCyber_High_Entropy_Blob
+      open_case            opened case #17 [HIGH] and linked event #32
+```
+
+That second run is the whole point: a *behavioral* alert (mass extension
+change) automatically triggering a *file-level* confirmation (YARA), with
+both findings attached to one case — no human in the loop.
+
+#### Three real bugs this found in existing modules
+
+Wiring automation to alerts that only humans had ever read surfaced
+things nobody would have noticed by reading the code:
+
+1. **The DLP alert named what leaked but not where to.** `exfil_demo.py`
+   reported `card-number-shaped pattern in outbound body` with no
+   destination, so the enrichment playbook had *nothing to enrich* — the
+   queued pipeline above was a no-op for a reason that had nothing to do
+   with the pipeline. Fixed: the alert now carries the destination URL,
+   and the chain produces a real finding.
+2. **The ransomware alert named what happened but not where.**
+   `ransomware_sim.py` reported `6 files changed to '.encrypted'` with no
+   path, so `ransomware-file-response` had nothing to scan. Fixed: the
+   affected path is in the alert, and the YARA scan above is the result.
+3. **The path-extraction regex silently ate the first directory.**
+   `/home/user/…` extracted as `/user/…`. The leading `\b` held between
+   `home` and the *second* slash but not before the first (space-to-slash
+   is two non-word characters, which is not a boundary). Caught by running
+   the playbook against a real alert, not by reading the pattern. Fixing
+   it then exposed a second one: URLs were being chopped into fake paths
+   (`http://example.com/a/b` → `/example.com/a/b`), since a URL's own path
+   component looks exactly like a filesystem path — so URLs are now
+   stripped before path extraction.
+
+#### And one design gap between the two new modules
+
+Running the SOAR runner and `--auto-triage` over the same live events made
+them disagree about what an incident *is*: the runner opened one case per
+event while auto-triage grouped them. A burst of related alerts — exactly
+what a DLP hit or a ransomware run produces — would have given the analyst
+the same alert list they had before case management existed, just with
+case numbers on it. Both now correlate on the same `(source, technique)`
+key before creating anything, so a burst converges on one investigation no
+matter which path reaches it first. Verified with a real 4-alert burst:
+
+```
+      open_case            opened case #34 [HIGH] and linked event #72
+      open_case            correlated event #73 into existing case #34 (same source+technique, still open)
+      open_case            correlated event #74 into existing case #34 (same source+technique, still open)
+      open_case            correlated event #75 into existing case #34 (same source+technique, still open)
+```
+
+Severity escalates but never de-escalates on correlation: a case that held
+a HIGH alert doesn't become MEDIUM because a quieter one joined it.
+
+### Usage — YARA, cases, SOAR
+
+```bash
+pip install -r requirements.txt        # now includes yara-python
+
+# --- YARA ---
+python dfir/yara_scanner.py --self-test
+python dfir/yara_scanner.py --list-rules
+python dfir/yara_scanner.py --scan <file-or-directory>
+python dfir/yara_scanner.py --scan . --include-detection-content   # watch it self-match
+
+# --- Case management (needs event-bus/events.db) ---
+python case-management/case_manager.py --self-test
+python case-management/case_manager.py --auto-triage
+python case-management/case_manager.py --list
+python case-management/case_manager.py --show 1
+python case-management/case_manager.py --assign 1 arnav
+python case-management/case_manager.py --set-status 1 IN_PROGRESS
+python case-management/case_manager.py --close 1 --disposition FALSE_POSITIVE --note "known admin script"
+python case-management/case_manager.py --stats
+# live view: http://127.0.0.1:8790/cases while the collector is running
+
+# --- SOAR ---
+python soar/playbook_runner.py --self-test
+python soar/playbook_runner.py --list-playbooks
+python soar/playbook_runner.py --run-once            # WHOIS enrichment enabled
+python soar/playbook_runner.py --run-once --offline  # local actions only
+python soar/playbook_runner.py --watch --interval 10
+```
+
+### What these three do *not* do
+
+Stated plainly so the section above isn't read as more than it is:
+
+- **No threat-intel enrichment against a real TIP.** No MISP, no OpenCTI,
+  no VirusTotal. Indicators are extracted and structurally analyzed with
+  this project's own modules; none of them is checked against a reputation
+  feed.
+- **No containment.** The SOAR runner deliberately has no quarantine,
+  kill-process or block-address action.
+- **YARA is on-disk only.** No live process-memory scanning — that needs
+  elevation and a different set of APIs, the same boundary
+  `fs_watcher.py --try-kernel-trace` already documents.
+- **Case management is single-analyst and local.** No multi-user auth, no
+  SLA timers, no notification routing. It's the data model and the
+  lifecycle, not a product.

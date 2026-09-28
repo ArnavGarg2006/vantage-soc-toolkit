@@ -1,0 +1,15 @@
+name: phishing-url-triage
+description: >
+  Any phishing-flavored alert carrying a URL gets that URL structurally
+  analyzed and its domain aged, then cased. Matches on technique rather
+  than source so it fires for anything tagged T1566, not just one module.
+
+trigger:
+  technique_id: T1566
+  min_severity: MEDIUM
+
+actions:
+  - extract_indicators
+  - analyze_urls
+  - check_domain_age
+  - open_case

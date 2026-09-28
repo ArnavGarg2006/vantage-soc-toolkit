@@ -30,8 +30,12 @@ def check_domain(domain):
     try:
         w = whois.whois(domain)
     except Exception as e:
+        # WHOIS needs outbound network and the answer varies by registry.
+        # Callers get an explicit error result rather than None so an
+        # automated pipeline can tell "lookup failed" apart from
+        # "looked up fine, nothing suspicious".
         print(f"  Lookup failed: {e}")
-        return
+        return {"domain": domain, "error": str(e), "age_days": None, "suspicious": False}
 
     creation = w.creation_date
     if isinstance(creation, list):
@@ -39,7 +43,8 @@ def check_domain(domain):
 
     if not creation:
         print("  No creation date available from WHOIS (privacy-protected or a TLD with limited data).")
-        return
+        return {"domain": domain, "error": "no creation date in WHOIS",
+                "age_days": None, "suspicious": False}
 
     if creation.tzinfo is None:
         creation = creation.replace(tzinfo=timezone.utc)
@@ -55,6 +60,13 @@ def check_domain(domain):
         emit(source="domain_age_checker", technique_id="T1583.001", severity="MEDIUM", message=msg)
     else:
         print(f"  Older than the {SUSPICIOUS_AGE_DAYS}-day threshold.")
+
+    # Returned as well as printed so soar/playbook_runner.py can act on the
+    # result programmatically instead of scraping stdout. Printing is
+    # unchanged, so the CLI behaves exactly as before.
+    return {"domain": domain, "error": None, "age_days": age_days,
+            "registrar": str(w.registrar), "created": str(creation.date()),
+            "suspicious": age_days < SUSPICIOUS_AGE_DAYS}
 
 
 def main():
