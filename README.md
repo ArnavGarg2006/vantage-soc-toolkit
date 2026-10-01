@@ -1684,6 +1684,101 @@ python case-management/case_manager.py --check-sla    # notify breaches (safe on
 python case-management/case_manager.py --check-sla --policy my_policy.yml
 ```
 
+### Closing the gaps — 4 of 4: threat intel, and an evidence tier stated out loud
+
+This is the gap I pushed back on hardest, and it is the one closed with the
+most caveats attached — because the honest version is narrower than the
+bullet implied.
+
+**What it is not:** a MISP or OpenCTI integration. Those are server
+platforms. There is no instance behind this repo, and an API client written
+against a service that is not running anywhere produces exactly what this
+project has refused to ship since the first commit — code whose output
+nobody could verify.
+
+**What it is:** a local indicator store that speaks **MISP's published event
+format**. That format is an open spec, so parsing it is a real capability
+that can be proven offline against a real-shaped document. Point
+`--import-misp` at any MISP export, feed file, or URL serving one, and the
+indicators land in the same SQLite store as events and cases — where they
+join to an alert in one query.
+
+The distinction matters. *"We speak the format, point it at a feed"* is true
+and checkable. *"We integrate with MISP"* would not be.
+
+#### The evidence tier, named rather than buried
+
+| | Status |
+|---|---|
+| MISP-format parsing (3 export shapes, Object-nested attributes, unmapped types) | **verified** |
+| Storage, normalisation, idempotent re-import | **verified** |
+| Feed ingestion over real HTTP | **verified** against a localhost server serving a real-format document |
+| Matching against alert text, case-insensitively | **verified** |
+| The whole SOAR enrichment path | **verified** end to end |
+| **Reachability of any public feed** | **NOT verified** — outbound network is blocked in the environment this was built in |
+| **VirusTotal against the live service** | **NOT verified** — needs egress *and* an API key |
+
+The VT code path is exercised against a local server that mimics VT's
+response shape. That proves the parsing and the error handling. **It proves
+nothing about the live service**, and is not counted as verified. If you have
+egress and a key, the same commands work against the real thing — but that
+is a claim about your environment, not about this code.
+
+#### Two design rules that matter more than the feature
+
+- **A miss is "no opinion", never "clean."** `--lookup` on an unknown value
+  prints *"Not in the store. That is not 'benign' — it means this store has
+  no opinion."* An enrichment step that reports an empty store as benign is
+  worse than no enrichment, because it manufactures confidence out of
+  absence.
+- **"Not configured" is distinguishable from "looked up, found nothing."**
+  `vt_lookup` always returns both `configured` and `error`, and the self-test
+  asserts the difference. An enrichment pipeline that blurs those two reports
+  a clean verdict it never obtained.
+
+#### Verified output — IOC store
+
+```
+  [PASS] MISP parse pulls ip, domain, hash and url
+  [PASS] an attribute nested under Object is not missed
+  [PASS] an unmappable MISP type is counted, not silently dropped
+  [PASS] a mixed-case domain is normalised on import
+  [PASS] feed ingested over real HTTP and stored
+  [PASS] re-importing the same feed adds nothing (idempotent)
+  [PASS] an IP in alert text matches the store
+  [PASS] case-insensitive domain match (feed and alert disagree on case)
+  [PASS] benign text matches nothing (the control)
+  [PASS] VirusTotal without a key reports not-configured, not 'clean'
+  [PASS] VirusTotal response parsing handles a real-shaped reply
+```
+
+End to end, with a feed imported and an alert naming one of its indicators:
+
+```
+Imported 3 new indicator(s), 0 already present.
+  1 attribute(s) of unmapped type(s) skipped: btc
+
+  ▸ dlp-exfil-enrichment on event #1 [HIGH] exfil_demo
+      ioc_lookup   KNOWN BAD domain bad-example.org (feed: …, event: Demo C2 infrastructure)
+      open_case    opened case #1 [HIGH] and linked event #1
+```
+
+Note the skipped `btc` attribute: unmapped MISP types are **counted and
+reported**, not silently dropped. A feed importer that quietly discards most
+of a feed looks identical to one that worked.
+
+```bash
+python threat-intel/ioc_store.py --import-misp feed.json
+python threat-intel/ioc_store.py --import-misp https://example.org/misp.json
+python threat-intel/ioc_store.py --import-list bad_ips.txt --type ip
+python threat-intel/ioc_store.py --lookup 198.51.100.7
+python threat-intel/ioc_store.py --match "beacon to 198.51.100.7 every 1.5s"
+python threat-intel/ioc_store.py --stats
+
+export VANTAGE_VT_API_KEY=...        # free tier: 4 lookups/minute
+python threat-intel/ioc_store.py --vt <hash|domain|ip>
+```
+
 ### Usage — YARA, cases, SOAR
 
 ```bash
@@ -1726,10 +1821,12 @@ python soar/playbook_runner.py --watch --interval 10
 
 Stated plainly so the section above isn't read as more than it is:
 
-- **No threat-intel enrichment against a real TIP.** No MISP, no OpenCTI,
-  no VirusTotal. Indicators are extracted and structurally analyzed with
-  this project's own modules; none of them is checked against a reputation
-  feed.
+- **No MISP or OpenCTI *integration*** — still true, and still deliberate:
+  there is no instance to verify against. ~~No reputation feed at all.~~
+  **Partly closed** — `threat-intel/ioc_store.py` speaks the MISP *event
+  format*, so any MISP export or feed file can be ingested and matched
+  against alerts. VirusTotal is implemented but is the one component never
+  verified against the live service here. See below.
 - ~~**No containment.**~~ **Closed** — `contain_process` and `block_ip` are
   real SOAR actions now, dry-run by default and gated behind `--arm`. See below.
 - ~~**YARA is on-disk only.**~~ **Closed** — `--scan-pid` and `--scan-processes`

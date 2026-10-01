@@ -13,6 +13,7 @@ trigger:
 
 actions:
   - extract_indicators
+  - ioc_lookup           # local MISP-format store; no network
   - analyze_urls          # offline: pure string analysis, no network
   - check_domain_age      # network: WHOIS, skipped under --offline
   - open_case

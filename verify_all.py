@@ -138,6 +138,10 @@ CHECKS = [
          args=["soar/containment.py", "--self-test"],
          ok=PASS_MARK, bad=FAIL_MARK, needs=["mod:psutil"],
          note="9 checks: dry-run safety, arm, undo, self/PID-1/allowlist guards"),
+    dict(id="threat-intel/ioc_store", group="Threat intel",
+         args=["threat-intel/ioc_store.py", "--self-test"],
+         ok=PASS_MARK, bad=FAIL_MARK, needs=["mod:requests"],
+         note="11 checks: MISP-format parsing, HTTP ingest, matching, VT handling"),
 
     # ---- event bus ------------------------------------------------------
     dict(id="event-bus/collector", group="Event bus",

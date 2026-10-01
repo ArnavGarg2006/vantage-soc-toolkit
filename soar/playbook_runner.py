@@ -309,6 +309,40 @@ def action_yara_scan(ctx):
     return lines
 
 
+def action_ioc_lookup(ctx):
+    """Check the alert's indicators against the local IOC store.
+
+    Fully local: no network, no API key, no external service. The store is
+    populated ahead of time from a MISP-format feed
+    (threat-intel/ioc_store.py --import-misp), so enrichment at alert time
+    is a SQLite join rather than a request that might time out mid-playbook.
+
+    A miss is reported as "no opinion", never as "clean". An enrichment step
+    that reports an empty store as benign is worse than no enrichment,
+    because it manufactures confidence out of absence.
+    """
+    store = load_module("threat-intel/ioc_store.py")
+    conn = ctx["conn"]
+    store.init_db(conn)
+
+    total = conn.execute("SELECT COUNT(*) c FROM iocs").fetchone()["c"]
+    if total == 0:
+        return ["IOC store is empty — no opinion (import a feed with "
+                "threat-intel/ioc_store.py --import-misp)"]
+
+    hits = store.match_text(conn, ctx["event"]["message"])
+    if not hits:
+        return [f"no match against {total} indicator(s) — not in the store, "
+                f"which is not the same as benign"]
+
+    lines = []
+    for h in hits:
+        lines.append(f"KNOWN BAD {h['kind']} {h['value']} "
+                     f"(feed: {h['source']}, event: {h['feed_event']})")
+        ctx["max_severity"] = max(ctx["max_severity"], SEVERITY_ORDER["HIGH"])
+    return lines
+
+
 def action_contain_process(ctx):
     """Suspend a process named in the alert — DRY RUN unless --arm.
 
@@ -409,6 +443,7 @@ ACTIONS = {
     "analyze_urls": action_analyze_urls,
     "check_domain_age": action_check_domain_age,
     "yara_scan": action_yara_scan,
+    "ioc_lookup": action_ioc_lookup,
     "contain_process": action_contain_process,
     "block_ip": action_block_ip,
     "open_case": action_open_case,

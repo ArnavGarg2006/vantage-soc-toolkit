@@ -10,6 +10,7 @@ trigger:
 
 actions:
   - extract_indicators
+  - ioc_lookup           # local MISP-format store; no network
   - analyze_urls
   - check_domain_age
   - open_case
