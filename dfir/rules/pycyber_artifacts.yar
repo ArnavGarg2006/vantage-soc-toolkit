@@ -20,6 +20,28 @@
 
 import "math"
 
+/*
+    SCOPE
+    -----
+    Every rule in this file is scoped `file`. yara_scanner.py will apply
+    them to files and will NOT apply them to live process memory.
+
+    This is not caution for its own sake — it was measured. These rules use
+    "two independent indicators appear somewhere in the same blob" logic,
+    which is sound for a bounded file of a few KB and close to vacuous
+    across a process's whole address space. Running the memory scanner with
+    these enabled matched PyCyber_Staged_Sensitive_Data against a benign
+    control process on the first attempt: somewhere in a Python
+    interpreter's memory there is a 16-digit run, and somewhere else there
+    is the word "account", and the rule only ever asked for both to exist.
+
+    PyCyber_High_Entropy_Blob additionally uses `filesize`, which has no
+    meaning for a process.
+
+    The memory-resident equivalents live in pycyber_memory.yar and are
+    written for an unbounded blob instead.
+*/
+
 
 rule PyCyber_Encoded_PowerShell_Command
 {
@@ -30,6 +52,7 @@ rule PyCyber_Encoded_PowerShell_Command
         sigma_equivalent = "encoded_or_obfuscated_powershell_command_line.yml"
         reference = "https://attack.mitre.org/techniques/T1059/001/"
         severity = "HIGH"
+        scope = "file"
 
     strings:
         $enc1 = "-EncodedCommand" ascii wide nocase
@@ -53,6 +76,7 @@ rule PyCyber_LOLBin_Download_Cradle
         sigma_equivalent = "known_lolbin_process_execution.yml"
         reference = "https://lolbas-project.github.io/"
         severity = "HIGH"
+        scope = "file"
 
     strings:
         $certutil = "certutil" ascii wide nocase
@@ -82,6 +106,7 @@ rule PyCyber_Staged_Sensitive_Data
         reference = "https://attack.mitre.org/techniques/T1074/001/"
         note = "Matches the same patterns exfiltration/exfil_demo.py's DLP inspector looks for in outbound HTTP bodies, applied to data staged on disk before it ever leaves the host."
         severity = "HIGH"
+        scope = "file"
 
     strings:
         $card = /\b[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}[- ]?[0-9]{4}\b/
@@ -104,6 +129,7 @@ rule PyCyber_Ransom_Note
         attack = "T1486"
         reference = "https://attack.mitre.org/techniques/T1486/"
         severity = "HIGH"
+        scope = "file"
 
     strings:
         $enc1 = "your files have been encrypted" ascii wide nocase
@@ -128,6 +154,7 @@ rule PyCyber_High_Entropy_Blob
         reference = "https://attack.mitre.org/techniques/T1486/"
         note = "Fires on the AES-256 output of impact/ransomware_sim.py. Entropy alone is a weak signal on its own - compressed archives, media and installers are legitimately high-entropy - so this is scoped to small files and is INFO-to-MEDIUM corroboration, never a standalone verdict. See the scanner's own output caveat."
         severity = "MEDIUM"
+        scope = "file"
 
     condition:
         filesize > 64 and filesize < 2MB and math.entropy(0, filesize) > 7.2

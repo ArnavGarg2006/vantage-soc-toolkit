@@ -4,7 +4,7 @@ status: experimental
 description: Detects execution of a binary commonly abused for living-off-the-land
   attacks (LOLBins). Matches the heuristic in shield-detect/process_monitor.py.
 author: python-for-cybersecurity project
-date: 2026/08/27
+date: 2026/10/01
 references:
 - https://lolbas-project.github.io/
 tags:

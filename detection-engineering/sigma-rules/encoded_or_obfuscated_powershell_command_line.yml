@@ -5,7 +5,7 @@ description: Detects PowerShell invoked with an encoded/obfuscated command-line 
   (-enc, -e, -EncodedCommand) — a common technique to hide the actual command from
   casual log review. Matches the heuristic in process_monitor.py.
 author: python-for-cybersecurity project
-date: 2026/08/27
+date: 2026/10/01
 references:
 - https://attack.mitre.org/techniques/T1027/
 tags:

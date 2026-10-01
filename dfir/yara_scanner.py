@@ -51,6 +51,7 @@ import argparse
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -121,6 +122,22 @@ def compile_rules(yara, quiet=False):
 
 def severity_of(match):
     return str(match.meta.get("severity", "MEDIUM")).upper()
+
+
+def scope_of(match):
+    """Where a rule is valid: "file", "memory", or "both".
+
+    Default is "file" rather than "both" deliberately. A rule written
+    without thinking about memory is a file rule, and the failure mode of
+    guessing wrong in that direction is a noisy memory scanner — which is
+    the thing that makes people stop reading memory alerts.
+    """
+    return str(match.meta.get("scope", "file")).lower()
+
+
+def in_scope(match, context):
+    s = scope_of(match)
+    return s == "both" or s == context
 
 
 def scan_file(rules, path, quiet=False):
@@ -201,6 +218,8 @@ def run_scan(rules, target, include_detection_content=False, quiet=False, emit_e
             continue
         scanned += 1
         for m in matches:
+            if not in_scope(m, "file"):
+                continue
             hits.append((path, m))
             severity = severity_of(m)
             desc = m.meta.get("description", "")
@@ -237,6 +256,214 @@ def run_scan(rules, target, include_detection_content=False, quiet=False, emit_e
         if any(m.rule == "PyCyber_High_Entropy_Blob" for _, m in hits):
             print("  Note: PyCyber_High_Entropy_Blob fired. Entropy alone is corroboration, "
                   "not proof — archives, media and installers are legitimately high-entropy.")
+    return hits
+
+
+# --------------------------------------------------------------------------
+# Live process-memory scanning.
+#
+# The gap this closes: everything above reads files. An attacker who decodes
+# a payload in memory, or holds credentials in a process after reading them,
+# leaves nothing on disk for a file scan to find. yara-python exposes
+# rules.match(pid=...) for exactly this, and it is the same rule set — a
+# YARA rule does not care where the bytes came from.
+#
+# Three things about memory scanning that are genuinely different from
+# scanning files, all of which the code below has to handle rather than
+# pretend away:
+#
+#   1. It needs privilege. Reading another process's memory means root (or
+#      same-user plus ptrace permission) on Linux, and an elevated terminal
+#      plus SeDebugPrivilege on Windows. Denials are normal and are counted
+#      and reported, never silently dropped.
+#   2. It is slow and it is noisy. A full sweep walks every mapped region of
+#      every process, and memory legitimately contains strings that look
+#      alarming — a browser tab, a password manager, a terminal scrollback.
+#      Severities in the memory rules are set conservatively for that reason
+#      and the scanner says so inline.
+#   3. The scanner self-matches. This process holds every rule string in its
+#      own memory, because it just compiled them. That is the runtime twin
+#      of the detection-content problem the file scanner already has, and it
+#      is handled the same way: the scanner's own PID (and its parent) are
+#      excluded by default, visibly, with a flag to turn that off so you can
+#      watch it happen.
+# --------------------------------------------------------------------------
+
+# A full sweep of every process on a busy host is minutes of work for very
+# little return. The cap keeps the default honest and is reported when hit.
+IS_WINDOWS = sys.platform.startswith("win")
+
+DEFAULT_MAX_PROCESSES = 60
+
+
+def require_psutil():
+    try:
+        import psutil
+        return psutil
+    except ImportError:
+        print("psutil isn't installed (needed to enumerate processes).")
+        print("    pip install -r requirements.txt")
+        sys.exit(1)
+
+
+def scan_process(rules, pid, timeout=20):
+    """Scan one live process's memory.
+
+    Returns (matches, error). Exactly one is meaningful: an error string
+    means the scan could not happen and the caller must report it rather
+    than treat it as 'clean'. Conflating 'no access' with 'no match' is the
+    single easiest way to make a memory scanner look better than it is.
+    """
+    try:
+        return (rules.match(pid=pid, timeout=timeout) or [], None)
+    except Exception as e:
+        msg = str(e) or type(e).__name__
+        low = msg.lower()
+        if "access" in low or "permission" in low or "denied" in low:
+            return (None, "access denied (needs root / elevated + SeDebugPrivilege)")
+        if "timeout" in low or "timed out" in low:
+            return (None, f"timed out after {timeout}s")
+        if "could not attach" in low or "process not found" in low or "no such" in low:
+            return (None, "process exited before it could be scanned")
+        return (None, msg[:90])
+
+
+def is_kernel_thread(proc):
+    """True for a Linux kernel thread — it has no user address space, so a
+    memory scan of it can never match and reporting it as access-denied is
+    actively misleading. Kernel threads expose an empty cmdline; a userland
+    process always has one. Windows has no equivalent, so this is a no-op
+    there and the function simply returns False."""
+    if IS_WINDOWS:
+        return False
+    try:
+        return not proc.cmdline()
+    except Exception:
+        # Can't tell — treat as a real process so it's scanned (and any
+        # genuine denial gets reported) rather than silently dropped.
+        return False
+
+
+def self_pids():
+    """This process and its parent — excluded by default because the scanner
+    necessarily holds every rule string in its own memory."""
+    pids = {os.getpid()}
+    try:
+        pids.add(os.getppid())
+    except (AttributeError, OSError):
+        pass
+    return pids
+
+
+def run_memory_scan(rules, pids=None, name_filter=None,
+                    max_processes=DEFAULT_MAX_PROCESSES,
+                    include_self=False, quiet=False, emit_events=True,
+                    timeout=20):
+    """Scan live process memory. Returns a list of (pid, name, match)."""
+    psutil = require_psutil()
+    skip = set() if include_self else self_pids()
+
+    if pids:
+        targets = []
+        for pid in pids:
+            try:
+                targets.append((pid, psutil.Process(pid).name()))
+            except Exception:
+                targets.append((pid, "?"))
+    else:
+        targets = []
+        kernel_threads = 0
+        for p in psutil.process_iter(["pid", "name", "create_time"]):
+            name = p.info.get("name") or "?"
+            if name_filter and name_filter.lower() not in name.lower():
+                continue
+            # Kernel threads have no user address space at all, so a memory
+            # scan of one can never match. They were previously counted as
+            # "access denied", which reads as a privilege problem the user
+            # could fix by running elevated — they cannot. Found by running
+            # --scan-processes as root and getting 40/40 "denied".
+            if not is_kernel_thread(p):
+                targets.append((p.info["pid"], name, p.info.get("create_time") or 0))
+            else:
+                kernel_threads += 1
+        # Newest first. Sorting by PID ascending spends the whole cap on
+        # init and kernel threads — the least interesting processes on the
+        # box. A process that appeared recently is where a fresh compromise
+        # actually lives.
+        targets.sort(key=lambda t: t[2], reverse=True)
+        targets = [(pid, name) for pid, name, _ in targets]
+        if kernel_threads and not quiet:
+            print(f"\n  ({kernel_threads} kernel thread(s) skipped — no user "
+                  f"address space to scan, not a permission problem)")
+
+    capped = False
+    if not pids and len(targets) > max_processes:
+        targets = targets[:max_processes]
+        capped = True
+
+    if not quiet:
+        print(f"\n=== Scanning process memory ({len(targets)} process(es)) ===")
+        if skip:
+            print(f"  (excluding this scanner's own PID{'s' if len(skip) > 1 else ''} "
+                  f"{sorted(skip)} — it holds every rule string in memory by "
+                  f"definition; --include-self to scan it anyway)")
+
+    hits, denied, gone, errors, scanned = [], 0, 0, 0, 0
+    for pid, name in targets:
+        if pid in skip:
+            continue
+        matches, err = scan_process(rules, pid, timeout=timeout)
+        if err is not None:
+            if "denied" in err:
+                denied += 1
+            elif "exited" in err:
+                gone += 1
+            else:
+                errors += 1
+                if not quiet:
+                    print(f"  [skip] pid {pid} ({name}): {err}")
+            continue
+        scanned += 1
+        for m in matches:
+            # Scope is enforced here, not left to the rule author's good
+            # intentions. A file rule loose enough to be harmless on a 2 KB
+            # sample is near-guaranteed to fire somewhere in 50 MB of
+            # address space — measured, see pycyber_artifacts.yar's header.
+            if not in_scope(m, "memory"):
+                continue
+            hits.append((pid, name, m))
+            severity = severity_of(m)
+            if not quiet:
+                print(f"  [{severity:6}] {m.rule}")
+                print(f"           pid {pid} ({name})")
+                print(f"           {m.meta.get('description', '')}")
+            if emit_events:
+                emit(source="yara_scanner",
+                     technique_id=str(m.meta.get("attack", "")).split(",")[0].strip(),
+                     severity=severity,
+                     message=f"{m.rule} matched LIVE MEMORY of pid {pid} ({name}): "
+                             f"{m.meta.get('description', '')}")
+
+    if quiet:
+        return hits
+
+    print(f"\n  {scanned} process(es) scanned, {len(hits)} match(es).")
+    # Every category of non-scan is reported. A memory scanner that silently
+    # skips what it could not read is reporting the privilege it has, not
+    # the state of the host.
+    if denied:
+        print(f"  {denied} process(es) could not be read (access denied) — "
+              f"{'run elevated to cover them' if denied else ''}")
+    if gone:
+        print(f"  {gone} process(es) exited mid-scan (normal on a live host)")
+    if errors:
+        print(f"  {errors} process(es) failed for other reasons (listed above)")
+    if capped:
+        print(f"  Capped at {max_processes} process(es) — raise with --max-processes")
+    if hits:
+        print("  Note: memory legitimately contains alarming-looking strings "
+              "(browsers, password managers, shells). Treat a memory hit as a "
+              "lead to confirm, not a verdict.")
     return hits
 
 
@@ -317,6 +544,73 @@ def build_samples():
     return expected
 
 
+def memory_self_test(rules, quiet=False):
+    """Spawn two real processes — one holding a pattern the memory rules
+    match, one benign — and prove the scanner tells them apart.
+
+    The control process is what makes this mean anything, exactly as on the
+    file side. Proving a rule fires says nothing about whether it fires on
+    everything.
+    """
+    import subprocess
+
+    print("\n=== Live process-memory scan ===")
+
+    # Holds credential-shaped material in memory and never writes it to disk —
+    # which is precisely what a file scan cannot see. The AKIA value is a
+    # structurally-invalid placeholder, not a real key.
+    bad_src = (
+        "import time\n"
+        "blob = 'AWS_SECRET_ACCESS_KEY' + '=' + 'x' * 20\n"
+        "key = 'AKIA' + '0' * 16\n"
+        "held = [blob, key, 'aws_backup_credentials']\n"
+        "time.sleep(8)\n"
+    )
+    # Same shape of program, no matching content — the negative control.
+    good_src = (
+        "import time\n"
+        "held = ['quarterly notes', 'migration finished on schedule', 'no action items']\n"
+        "time.sleep(8)\n"
+    )
+
+    bad = subprocess.Popen([sys.executable, "-c", bad_src])
+    good = subprocess.Popen([sys.executable, "-c", good_src])
+    time.sleep(1.5)  # let both interpreters finish starting and hold the strings
+
+    try:
+        bad_hits = run_memory_scan(rules, pids=[bad.pid], quiet=True, emit_events=False)
+        good_hits = run_memory_scan(rules, pids=[good.pid], quiet=True, emit_events=False)
+
+        bad_rules = sorted({m.rule for _, _, m in bad_hits})
+        good_rules = sorted({m.rule for _, _, m in good_hits})
+
+        print(f"  [{'PASS' if 'PyCyber_Mem_Credential_Material' in bad_rules else 'FAIL'}] "
+              f"pid {bad.pid} (credential material held in memory only) -> "
+              f"{', '.join(bad_rules) or 'nothing'}")
+        print(f"  [{'PASS' if not good_hits else 'FAIL'}] "
+              f"pid {good.pid} (benign control process) -> "
+              f"{', '.join(good_rules) or 'no match (correct)'}")
+
+        # The self-match is a real property worth demonstrating rather than
+        # asserting in a comment: this process holds every rule string.
+        own = run_memory_scan(rules, pids=[os.getpid()], include_self=True,
+                              quiet=True, emit_events=False)
+        print(f"  [info] scanning the scanner's own PID matches "
+              f"{len({m.rule for _, _, m in own})} rule(s) — which is why it is "
+              f"excluded by default, not a bug")
+
+        passed = ("PyCyber_Mem_Credential_Material" in bad_rules) and not good_hits
+    finally:
+        for p in (bad, good):
+            p.terminate()
+            try:
+                p.wait(timeout=5)
+            except Exception:
+                p.kill()
+
+    return passed
+
+
 def self_test():
     yara = require_yara()
     print("=== YARA scanner self-test ===\n")
@@ -353,6 +647,11 @@ def self_test():
     control_hits = results.get("control_benign.txt", [])
     print(f"\n  Benign control matched {len(control_hits)} rule(s)"
           f"{' — ' + ', '.join(control_hits) if control_hits else ' (correct)'}")
+
+    # Memory scanning is verified in the same run and on the same terms:
+    # a live process that should match, and one that should not.
+    mem_passed = memory_self_test(rules)
+    passed = passed and mem_passed
 
     fired = emit(
         source="yara_scanner",
@@ -408,6 +707,16 @@ def main():
                         help="Don't skip this project's rules and detectors (they self-match "
                              "— see module docstring)")
     parser.add_argument("--list-rules", action="store_true", help="Show the loaded rules and their metadata")
+    parser.add_argument("--scan-pid", type=int, metavar="PID",
+                        help="Scan one live process's memory (needs root / elevated)")
+    parser.add_argument("--scan-processes", action="store_true",
+                        help="Scan live process memory across running processes")
+    parser.add_argument("--name-filter", metavar="SUBSTR",
+                        help="With --scan-processes, only processes whose name contains this")
+    parser.add_argument("--max-processes", type=int, default=DEFAULT_MAX_PROCESSES,
+                        help=f"Cap for --scan-processes (default {DEFAULT_MAX_PROCESSES})")
+    parser.add_argument("--include-self", action="store_true",
+                        help="Don't exclude the scanner's own PID (it self-matches — see docstring)")
     args = parser.parse_args()
 
     if args.self_test:
@@ -420,8 +729,20 @@ def main():
         hits = run_scan(rules, args.scan,
                         include_detection_content=args.include_detection_content)
         return 1 if hits else 0
+    if args.scan_pid or args.scan_processes:
+        yara = require_yara()
+        rules = compile_rules(yara)
+        hits = run_memory_scan(
+            rules,
+            pids=[args.scan_pid] if args.scan_pid else None,
+            name_filter=args.name_filter,
+            max_processes=args.max_processes,
+            include_self=args.include_self,
+        )
+        return 1 if hits else 0
 
-    parser.error("pass one of --self-test, --scan PATH, or --list-rules")
+    parser.error("pass one of --self-test, --scan PATH, --scan-pid PID, "
+                 "--scan-processes, or --list-rules")
 
 
 if __name__ == "__main__":

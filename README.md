@@ -1402,6 +1402,96 @@ matter which path reaches it first. Verified with a real 4-alert burst:
 Severity escalates but never de-escalates on correlation: a case that held
 a HIGH alert doesn't become MEDIUM because a quieter one joined it.
 
+### Closing the gaps — 1 of 4: YARA in live process memory
+
+The caveats section below used to say YARA here was on-disk only. That was
+the most closable of the four, because `yara-python` exposes
+`rules.match(pid=...)` and the capability is real rather than simulated.
+
+**Why it matters:** an attacker who decodes a payload in memory, or holds
+credentials in a process after reading them, leaves *nothing on disk* for a
+file scan to find. On-disk-only YARA cannot see fileless activity at all.
+
+```bash
+python dfir/yara_scanner.py --scan-pid 4812          # one process
+python dfir/yara_scanner.py --scan-processes         # a sweep, newest first
+python dfir/yara_scanner.py --scan-processes --name-filter powershell
+```
+
+#### A false positive that justified the whole design
+
+Running memory rules the naive way — reusing the existing disk rules —
+**failed immediately, against the benign control process.**
+`PyCyber_Staged_Sensitive_Data` fired on a process that contained nothing of
+the sort.
+
+The reason is structural, not a tuning problem. That rule says *"a
+card-shaped digit run AND a keyword like `account` both appear in this
+blob."* For a 2 KB file that is a reasonable correlation. Across ~50 MB of a
+Python interpreter's address space, **both are near-guaranteed to exist
+somewhere**, and the rule is asking almost nothing.
+
+So rules now declare a `scope` in their metadata, and the scanner **enforces
+it** rather than trusting the rule author:
+
+| Scope | Applied to | Why |
+|---|---|---|
+| `file` | files only | "indicators co-occur somewhere in the blob" logic, sound only when the blob is small and bounded |
+| `memory` | live process memory only | written for an unbounded blob; tighter conditions |
+| `both` | both | must hold under either assumption |
+
+All five original rules are `file` — one of them (`High_Entropy_Blob`) uses
+`filesize`, which has no meaning for a process at all. The two new rules in
+[`dfir/rules/pycyber_memory.yar`](dfir/rules/pycyber_memory.yar) are
+`memory`. The default for an unmarked rule is `file`, deliberately: a rule
+written without thinking about memory *is* a file rule, and guessing wrong
+in that direction only costs coverage, while guessing wrong the other way
+produces the noisy scanner that makes people stop reading memory alerts.
+
+#### Two more bugs found by running it
+
+- **Kernel threads were reported as "access denied."** A sweep as root
+  returned 40/40 denied, which reads as a privilege problem the user could
+  fix by running elevated — they cannot. Linux kernel threads have no user
+  address space, so a memory scan of one can never match. They're now
+  identified and skipped with an accurate message.
+- **The cap was spent on the least interesting processes.** Sorting targets
+  by PID ascending meant `--max-processes` was consumed entirely by `init`
+  and kernel threads. Now sorted newest-first — a process that appeared
+  recently is where a fresh compromise actually lives.
+
+#### Verified output — memory scanning
+
+```
+=== Live process-memory scan ===
+  [PASS] pid 487 (credential material held in memory only) -> PyCyber_Mem_Credential_Material
+  [PASS] pid 488 (benign control process) -> no match (correct)
+  [info] scanning the scanner's own PID matches 2 rule(s) — which is why it is excluded by default, not a bug
+```
+
+Same discipline as the file rules: a live process that **should** match, and
+one that **should not**, in the same run. Stable across three consecutive runs.
+
+That `[info]` line is the runtime twin of the disk scanner's
+detection-content problem — this process necessarily holds every rule string
+in its own memory, because it just compiled them. Its PID and its parent's
+are excluded by default, visibly, with `--include-self` to watch it happen.
+
+#### An honest false positive from a real sweep
+
+A `--scan-processes` run in this container flagged
+`PyCyber_Mem_Encoded_PowerShell` against a tooling process — one that had
+been handling *this project's own README text*, which contains the strings
+`powershell` and `FromBase64String` as detection content. The rule was
+working exactly as written; the hit was still wrong.
+
+That is the disk scanner's self-match problem at one remove — not the
+scanner's own PID, but a process that touched the rules' strings — and it is
+the concrete reason the scanner prints *"treat a memory hit as a lead to
+confirm, not a verdict"* every time it finds something. Memory scanning
+trades precision for reach, and the output says so rather than implying a
+confidence it hasn't earned.
+
 ### Usage — YARA, cases, SOAR
 
 ```bash
@@ -1415,6 +1505,11 @@ python dfir/yara_scanner.py --self-test
 python dfir/yara_scanner.py --list-rules
 python dfir/yara_scanner.py --scan <file-or-directory>
 python dfir/yara_scanner.py --scan . --include-detection-content   # watch it self-match
+
+# live process memory (needs root / elevated + SeDebugPrivilege)
+python dfir/yara_scanner.py --scan-pid 4812
+python dfir/yara_scanner.py --scan-processes --max-processes 60
+python dfir/yara_scanner.py --scan-processes --name-filter powershell
 
 # --- Case management (needs event-bus/events.db) ---
 python case-management/case_manager.py --self-test
@@ -1445,9 +1540,8 @@ Stated plainly so the section above isn't read as more than it is:
   feed.
 - **No containment.** The SOAR runner deliberately has no quarantine,
   kill-process or block-address action.
-- **YARA is on-disk only.** No live process-memory scanning — that needs
-  elevation and a different set of APIs, the same boundary
-  `fs_watcher.py --try-kernel-trace` already documents.
+- ~~**YARA is on-disk only.**~~ **Closed** — `--scan-pid` and `--scan-processes`
+  now scan live process memory via `rules.match(pid=...)`. See below.
 - **Case management is single-analyst and local.** No multi-user auth, no
   SLA timers, no notification routing. It's the data model and the
   lifecycle, not a product.
