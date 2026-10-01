@@ -1,0 +1,61 @@
+# SLA policy and notification routing for case-management/case_manager.py
+#
+# Two clocks per case, because they answer different questions:
+#
+#   acknowledge  how long before a human has LOOKED at it. This is the one
+#                that measures whether your alerting is survivable. A case
+#                nobody acknowledged for six hours was not triaged; it was
+#                ignored, whatever the resolution time eventually says.
+#   resolve      how long before it is CLOSED with a disposition.
+#
+# Times are in minutes. These values are a starting point, not a
+# recommendation — real SLA targets come from what an organisation has
+# actually committed to and staffed for, and a number copied out of someone
+# else's README is worth nothing. They are in a config file rather than in
+# the code precisely so changing them is not a code change.
+
+sla:
+  HIGH:
+    acknowledge_minutes: 30
+    resolve_minutes: 240
+  MEDIUM:
+    acknowledge_minutes: 240
+    resolve_minutes: 1440
+  LOW:
+    acknowledge_minutes: 1440
+    resolve_minutes: 4320
+  INFO:
+    acknowledge_minutes: 4320
+    resolve_minutes: 10080
+
+# A case is AT_RISK once it has used this fraction of its window. Warning
+# only at the moment of breach is warning too late to do anything about it.
+at_risk_threshold: 0.75
+
+# Where a breach notification goes. Routed by severity, because waking
+# someone for a LOW is how people learn to ignore the pager.
+#
+# Sinks:
+#   event_bus  POST to the local collector — always safe, always local
+#   stdout     print it
+#   webhook    POST JSON to webhook_url below
+#
+# No email/SMS/PagerDuty integration: each needs a credential this project
+# has nowhere safe to put, and an unverifiable integration is exactly what
+# this repo refuses to ship.
+routes:
+  HIGH:
+    - event_bus
+    - stdout
+    - webhook
+  MEDIUM:
+    - event_bus
+    - stdout
+  LOW:
+    - event_bus
+  INFO:
+    - event_bus
+
+# Localhost by default, following the same never-0.0.0.0 rule as every other
+# listener in this project. Point it at a real receiver if you have one.
+webhook_url: http://127.0.0.1:8791/notify

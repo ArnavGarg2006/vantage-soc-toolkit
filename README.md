@@ -1595,6 +1595,95 @@ account disablement, no EDR-style kernel-level blocking. And `KILL` exists
 but no playbook ships with it — `SUSPEND` is the default precisely because
 termination destroys the evidence you were about to collect.
 
+### Closing the gaps — 3 of 4: SLA clocks and notification routing
+
+A case list with no clock on it **cannot distinguish a queue being worked
+from a queue being ignored** — both look like a column of `OPEN`. That is
+the gap, and it is why two clocks exist rather than one:
+
+| Clock | Question it answers |
+|---|---|
+| **acknowledge** | How long before a human *looked* at it. This is the one that measures whether your alerting is survivable — a case nobody acknowledged for six hours was not triaged, whatever the resolution time eventually says |
+| **resolve** | How long before it was *closed with a disposition* |
+
+Targets and notification routes live in
+[`case-management/sla_policy.yml`](case-management/sla_policy.yml), not in
+code, so changing them is not a code change. The shipped numbers are a
+starting point, explicitly not a recommendation — real SLA targets come from
+what an organisation has committed to and staffed for, and a number copied
+out of someone else's README is worth nothing.
+
+A case reads `AT_RISK` once it has burned 75% of its window. **Warning only
+at the moment of breach is warning too late to do anything about it.**
+
+#### Notification routing
+
+Routed by severity, because paging someone for a `LOW` is how people learn
+to ignore the pager. Three sinks: `event_bus` (always local), `stdout`, and
+`webhook`. **No email/SMS/PagerDuty**, because each needs a credential this
+project has nowhere safe to put — an unverifiable integration is exactly
+what this repo refuses to ship.
+
+`--check-sla` is **idempotent**: the breach kinds already notified are
+recorded on the case. An SLA checker that re-pages every five minutes for
+the same unchanged breach trains people to mute it, so this is safe to run
+on a timer.
+
+#### Verified output — SLA
+
+```
+  [PASS] a fresh case is inside its acknowledge window
+  [PASS] a case past 75% of its window reads AT_RISK, before it breaches
+  [PASS] an unacknowledged case past its window reads BREACHED
+  [PASS] acknowledging stops the acknowledge clock (AT_RISK -> MET)
+  [PASS] acknowledging twice does not move the first-look timestamp
+  [PASS] breach notification fired for the breached case only
+  [PASS] webhook sink delivered over real HTTP to a live receiver
+  [PASS] re-checking does not re-notify the same breach (safe on a timer)
+  [PASS] closing a case counts as acknowledging it (no false breach)
+  [PASS] a malformed policy file degrades to defaults with a warning
+```
+
+The webhook check stands up an **actual localhost HTTP listener** and
+confirms the POST arrives, the same approach `exfil_demo.py` and the event
+bus already use. Asserting that a mock got called only proves the mock works.
+
+Two behaviours worth stating because they are easy to get wrong:
+
+- **Closing a case counts as acknowledging it.** Without this, every
+  quickly-closed case reports a false acknowledge breach — an artefact of
+  the bookkeeping, not a real miss.
+- **Acknowledging late does not un-breach a case.** `--ack` on a case that
+  already blew its window still reads `BREACHED`, and the mean-time-to-
+  acknowledge reflects the late look. A missed SLA that can be erased by
+  eventually getting round to it is not a measurement.
+
+#### The migration, tested against real data
+
+SLA tracking needed two new columns on an existing table. The migration is
+**additive only** — `ALTER TABLE ADD COLUMN`, never a drop or a rewrite —
+and was verified by building a database with the pre-SLA schema, filling it
+with rows, and running the new code against it:
+
+```
+OLD schema columns: [... 'closed_at', 'notes']
+rows before: events=1 cases=1 links=1
+
+NEW schema columns: [... 'closed_at', 'notes', 'acknowledged_at', 'sla_notified']
+rows after:  events=1 cases=1 links=1
+legacy case intact: ('pre-existing real case', 'must survive the migration')
+```
+
+A tool that silently recreates its own tables on upgrade is a data-loss bug
+waiting for the first person who upgrades with real cases open.
+
+```bash
+python case-management/case_manager.py --sla          # status + mean time to acknowledge
+python case-management/case_manager.py --ack 7 arnav  # record the first look
+python case-management/case_manager.py --check-sla    # notify breaches (safe on a timer)
+python case-management/case_manager.py --check-sla --policy my_policy.yml
+```
+
 ### Usage — YARA, cases, SOAR
 
 ```bash
@@ -1645,6 +1734,8 @@ Stated plainly so the section above isn't read as more than it is:
   real SOAR actions now, dry-run by default and gated behind `--arm`. See below.
 - ~~**YARA is on-disk only.**~~ **Closed** — `--scan-pid` and `--scan-processes`
   now scan live process memory via `rules.match(pid=...)`. See below.
-- **Case management is single-analyst and local.** No multi-user auth, no
-  SLA timers, no notification routing. It's the data model and the
-  lifecycle, not a product.
+- **Case management has no multi-user auth** — a deliberate non-goal, not a
+  gap. ~~No SLA timers, no notification routing.~~ **Both closed** — see
+  below. Assignees remain free-text labels rather than accounts: building
+  auth would mean storing credentials, and a portfolio security repo has
+  nowhere safe to put them.

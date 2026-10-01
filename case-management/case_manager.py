@@ -121,6 +121,19 @@ def init_db(conn):
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_cases_status ON cases(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_case_events_event ON case_events(event_id)")
+
+    # Schema migration for databases created before SLA tracking existed.
+    # Additive only — ALTER TABLE ADD COLUMN, never a drop or a rewrite, so
+    # an existing events.db full of real history keeps every row. A tool
+    # that silently recreates its own tables on upgrade is a data-loss bug
+    # waiting for the first person who upgrades with real cases open.
+    existing = {r[1] for r in conn.execute("PRAGMA table_info(cases)")}
+    for column, ddl in (
+        ("acknowledged_at", "ALTER TABLE cases ADD COLUMN acknowledged_at REAL"),
+        ("sla_notified", "ALTER TABLE cases ADD COLUMN sla_notified TEXT"),
+    ):
+        if column not in existing:
+            conn.execute(ddl)
     conn.commit()
 
 
@@ -304,6 +317,217 @@ def auto_triage(conn, window_minutes=DEFAULT_WINDOW_MINUTES, min_severity="MEDIU
 
 
 # --------------------------------------------------------------------------
+# SLA tracking and notification routing.
+#
+# What this adds that case status alone could not answer: "is anyone
+# actually working this, and did we meet what we said we would?" A case list
+# with no clock on it cannot distinguish a queue being worked from a queue
+# being ignored — both look like a column of OPEN.
+#
+# Two clocks, deliberately: time-to-acknowledge and time-to-resolve. The
+# acknowledge clock is the one that measures whether the alerting is
+# survivable; a case nobody looked at for six hours was not triaged
+# regardless of when it was eventually closed.
+#
+# Explicit non-goal: multi-user authentication. Assignees here are free-text
+# labels, not accounts. Building auth would mean storing credentials, and a
+# portfolio security repo has nowhere safe to put them — an unverifiable
+# auth layer is a liability, not a feature. This is the data model and the
+# lifecycle; it is not a product and does not pretend to be.
+# --------------------------------------------------------------------------
+
+POLICY_PATH = Path(__file__).resolve().parent / "sla_policy.yml"
+
+DEFAULT_POLICY = {
+    "sla": {
+        "HIGH": {"acknowledge_minutes": 30, "resolve_minutes": 240},
+        "MEDIUM": {"acknowledge_minutes": 240, "resolve_minutes": 1440},
+        "LOW": {"acknowledge_minutes": 1440, "resolve_minutes": 4320},
+        "INFO": {"acknowledge_minutes": 4320, "resolve_minutes": 10080},
+    },
+    "at_risk_threshold": 0.75,
+    "routes": {"HIGH": ["event_bus", "stdout"], "MEDIUM": ["event_bus"],
+               "LOW": ["event_bus"], "INFO": ["event_bus"]},
+    "webhook_url": "http://127.0.0.1:8791/notify",
+}
+
+
+def load_policy(path=None):
+    """Load the SLA policy, falling back to a built-in default.
+
+    A missing or malformed policy file must not take case management down —
+    it degrades to the defaults and says so, because the alternative is a
+    tool that stops tracking cases because of a YAML typo.
+    """
+    p = Path(path) if path else POLICY_PATH
+    if not p.exists():
+        return DEFAULT_POLICY, f"no policy file at {p.name} — using built-in defaults"
+    try:
+        import yaml
+        data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    except Exception as e:
+        return DEFAULT_POLICY, f"{p.name} could not be parsed ({type(e).__name__}) — using defaults"
+    merged = dict(DEFAULT_POLICY)
+    merged.update({k: v for k, v in data.items() if v is not None})
+    return merged, None
+
+
+def sla_state(case, policy, now=None):
+    """Return (ack_state, resolve_state, detail) for one case.
+
+    States: MET, OK, AT_RISK, BREACHED, or N/A.
+    """
+    now = now or time.time()
+    sev = str(case["severity"]).upper()
+    rules = policy["sla"].get(sev) or policy["sla"].get("MEDIUM")
+    threshold = float(policy.get("at_risk_threshold", 0.75))
+
+    def classify(deadline_s, done_at):
+        if done_at is not None:
+            return "MET" if done_at <= deadline_s else "BREACHED"
+        elapsed = now - case["opened_at"]
+        if now > deadline_s:
+            return "BREACHED"
+        if elapsed >= (deadline_s - case["opened_at"]) * threshold:
+            return "AT_RISK"
+        return "OK"
+
+    ack_deadline = case["opened_at"] + rules["acknowledge_minutes"] * 60
+    res_deadline = case["opened_at"] + rules["resolve_minutes"] * 60
+
+    ack_done = case["acknowledged_at"]
+    # Closing a case is an implicit acknowledgement — someone clearly looked
+    # at it. Reporting an ack breach on a case that was closed inside its
+    # window would be an artefact of the bookkeeping, not a real miss.
+    if ack_done is None and case["status"] == "CLOSED":
+        ack_done = case["closed_at"]
+    res_done = case["closed_at"] if case["status"] == "CLOSED" else None
+
+    return (classify(ack_deadline, ack_done),
+            classify(res_deadline, res_done),
+            {"ack_deadline": ack_deadline, "res_deadline": res_deadline,
+             "rules": rules})
+
+
+def acknowledge_case(conn, case_id, who=None):
+    row = conn.execute("SELECT acknowledged_at FROM cases WHERE id = ?",
+                       (case_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"no case {case_id}")
+    if row["acknowledged_at"]:
+        return False  # already acknowledged — the first look is the one that counts
+    now = time.time()
+    conn.execute("UPDATE cases SET acknowledged_at = ?, updated_at = ? WHERE id = ?",
+                 (now, now, case_id))
+    if who:
+        conn.execute("UPDATE cases SET assignee = COALESCE(assignee, ?) WHERE id = ?",
+                     (who, case_id))
+    conn.commit()
+    return True
+
+
+def notify(policy, severity, subject, body, quiet=False):
+    """Route one notification. Returns a list of (sink, result) pairs.
+
+    Every sink failure is reported rather than swallowed: a notification
+    system that silently drops messages is worse than none, because it
+    produces confident silence.
+    """
+    sinks = policy.get("routes", {}).get(str(severity).upper(), ["event_bus"])
+    results = []
+    for sink in sinks:
+        if sink == "stdout":
+            if not quiet:
+                print(f"    [notify:stdout] {subject} — {body}")
+            results.append((sink, "printed"))
+        elif sink == "event_bus":
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            from event_bus_client import emit
+            ok = emit(source="case_sla", technique_id="", severity=severity,
+                      message=f"{subject}: {body}")
+            results.append((sink, "delivered" if ok else "collector not running"))
+        elif sink == "webhook":
+            url = policy.get("webhook_url")
+            try:
+                import requests
+                r = requests.post(url, json={"severity": severity,
+                                             "subject": subject, "body": body},
+                                  timeout=2)
+                results.append((sink, f"HTTP {r.status_code}"))
+            except Exception as e:
+                results.append((sink, f"failed: {type(e).__name__}"))
+        else:
+            results.append((sink, "unknown sink — check routes in sla_policy.yml"))
+    return results
+
+
+def check_sla(conn, policy, quiet=False, now=None):
+    """Find SLA breaches and notify once per case per breach kind.
+
+    Idempotent: the kinds already notified are recorded on the case, so this
+    is safe to run on a timer. An SLA checker that re-pages every five
+    minutes for the same unchanged breach trains people to mute it.
+    """
+    now = now or time.time()
+    rows = conn.execute("SELECT * FROM cases WHERE status != 'CLOSED'").fetchall()
+    fired = []
+    for c in rows:
+        ack, res, detail = sla_state(c, policy, now)
+        already = set((c["sla_notified"] or "").split(",")) - {""}
+        for kind, state in (("ack", ack), ("resolve", res)):
+            if state != "BREACHED" or kind in already:
+                continue
+            over = now - (detail["ack_deadline"] if kind == "ack"
+                          else detail["res_deadline"])
+            target_min = detail["rules"][
+                "acknowledge_minutes" if kind == "ack" else "resolve_minutes"]
+            subject = f"SLA BREACH ({kind}) — case #{c['id']} [{c['severity']}]"
+            body = (f"{c['title'][:70]} — {fmt_duration(over)} past the "
+                    f"{target_min}-minute target")
+            results = notify(policy, c["severity"], subject, body, quiet=quiet)
+            already.add(kind)
+            fired.append((c["id"], kind, results))
+        conn.execute("UPDATE cases SET sla_notified = ? WHERE id = ?",
+                     (",".join(sorted(already)), c["id"]))
+    conn.commit()
+    return fired
+
+
+def cmd_sla(conn, policy, now=None):
+    now = now or time.time()
+    rows = conn.execute("SELECT * FROM cases ORDER BY id DESC").fetchall()
+    print(f"=== SLA status for {len(rows)} case(s) ===\n")
+    if not rows:
+        print("  No cases yet.")
+        return
+
+    print(f"  {'ID':>4}  {'SEV':7} {'STATUS':12} {'ACK':9} {'RESOLVE':9} "
+          f"{'AGE':>8}  TITLE")
+    counts = {}
+    for c in rows:
+        ack, res, _ = sla_state(c, policy, now)
+        counts[ack] = counts.get(ack, 0) + 1
+        age = fmt_duration(now - c["opened_at"])
+        print(f"  {c['id']:>4}  {c['severity']:7} {c['status']:12} "
+              f"{ack:9} {res:9} {age:>8}  {c['title'][:42]}")
+
+    print()
+    for state in ("BREACHED", "AT_RISK", "OK", "MET"):
+        if counts.get(state):
+            print(f"  {state:9} {counts[state]} case(s) by acknowledge clock")
+
+    # The number the two clocks exist to produce.
+    acked = conn.execute(
+        "SELECT AVG(acknowledged_at - opened_at) a FROM cases "
+        "WHERE acknowledged_at IS NOT NULL").fetchone()["a"]
+    if acked:
+        print(f"\n  Mean time to acknowledge: {fmt_duration(acked)}")
+    else:
+        print("\n  No case has been acknowledged yet — "
+              "mean time to acknowledge needs at least one (--ack ID).")
+
+
+# --------------------------------------------------------------------------
 # CLI rendering
 # --------------------------------------------------------------------------
 
@@ -421,6 +645,126 @@ def cmd_stats(conn):
 # Self-test
 # --------------------------------------------------------------------------
 
+def sla_self_test(conn):
+    """SLA clocks and notification routing, verified against a real HTTP
+    receiver rather than a mock.
+
+    The webhook sink is checked by standing up an actual localhost listener
+    and confirming the POST arrives — the same approach exfil_demo.py and
+    the event bus already use. Asserting that a mock was called proves the
+    mock works.
+    """
+    import json as _json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    print("\n  --- SLA and notification routing ---")
+    received = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            n = int(self.headers.get("Content-Length", 0))
+            try:
+                received.append(_json.loads(self.rfile.read(n)))
+            except Exception:
+                pass
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 8791), Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    policy = {
+        "sla": {"HIGH": {"acknowledge_minutes": 30, "resolve_minutes": 240}},
+        "at_risk_threshold": 0.75,
+        "routes": {"HIGH": ["event_bus", "webhook"]},
+        "webhook_url": "http://127.0.0.1:8791/notify",
+    }
+
+    now = time.time()
+    checks = []
+    made = []
+    try:
+        # Opened 10 minutes ago — comfortably inside a 30-minute ack window.
+        fresh = open_case(conn, f"{SELF_TEST_MARKER} fresh", severity="HIGH")
+        conn.execute("UPDATE cases SET opened_at = ? WHERE id = ?", (now - 600, fresh))
+        # Opened 26 minutes ago — past 75% of the window, not yet breached.
+        risky = open_case(conn, f"{SELF_TEST_MARKER} at risk", severity="HIGH")
+        conn.execute("UPDATE cases SET opened_at = ? WHERE id = ?", (now - 1560, risky))
+        # Opened 2 hours ago, never acknowledged — ack breached.
+        late = open_case(conn, f"{SELF_TEST_MARKER} breached", severity="HIGH")
+        conn.execute("UPDATE cases SET opened_at = ? WHERE id = ?", (now - 7200, late))
+        conn.commit()
+        made = [fresh, risky, late]
+
+        def state_of(cid):
+            row = conn.execute("SELECT * FROM cases WHERE id = ?", (cid,)).fetchone()
+            return sla_state(row, policy, now)
+
+        checks.append(("a fresh case is inside its acknowledge window",
+                       state_of(fresh)[0] == "OK"))
+        checks.append(("a case past 75% of its window reads AT_RISK, before it breaches",
+                       state_of(risky)[0] == "AT_RISK"))
+        checks.append(("an unacknowledged case past its window reads BREACHED",
+                       state_of(late)[0] == "BREACHED"))
+
+        # Acknowledging stops the ack clock.
+        acknowledge_case(conn, risky, "analyst-1")
+        checks.append(("acknowledging stops the acknowledge clock (AT_RISK -> MET)",
+                       state_of(risky)[0] == "MET"))
+        checks.append(("acknowledging twice does not move the first-look timestamp",
+                       acknowledge_case(conn, risky, "analyst-2") is False))
+
+        before = len(received)
+        fired = check_sla(conn, policy, quiet=True, now=now)
+        time.sleep(0.4)
+        mine = [f for f in fired if f[0] in made]
+        checks.append(("breach notification fired for the breached case only",
+                       len(mine) == 1 and mine[0][0] == late))
+        checks.append(("webhook sink delivered over real HTTP to a live receiver",
+                       len(received) > before
+                       and any("SLA BREACH" in r.get("subject", "") for r in received)))
+
+        # Idempotency — the property that makes this safe on a timer.
+        fired2 = [f for f in check_sla(conn, policy, quiet=True, now=now)
+                  if f[0] in made]
+        checks.append(("re-checking does not re-notify the same breach (safe on a timer)",
+                       fired2 == []))
+
+        # A closed case counts as acknowledged — otherwise every quickly-closed
+        # case reports a false ack breach purely as a bookkeeping artefact.
+        quick = open_case(conn, f"{SELF_TEST_MARKER} quick close", severity="HIGH")
+        made.append(quick)
+        conn.execute(
+            "UPDATE cases SET opened_at = ?, closed_at = ?, status = 'CLOSED', "
+            "disposition = 'FALSE_POSITIVE' WHERE id = ?",
+            (now - 7200, now - 7100, quick))
+        conn.commit()
+        checks.append(("closing a case counts as acknowledging it (no false breach)",
+                       state_of(quick)[0] == "MET"))
+
+        # A malformed policy must degrade, not crash.
+        bad = Path(__file__).resolve().parent / "_sla_bad.yml"
+        bad.write_text("sla: [this is not a mapping\n")
+        _, warning = load_policy(bad)
+        bad.unlink()
+        checks.append(("a malformed policy file degrades to defaults with a warning",
+                       warning is not None))
+    finally:
+        server.shutdown()
+        if made:
+            ph = ",".join("?" * len(made))
+            conn.execute(f"DELETE FROM case_events WHERE case_id IN ({ph})", made)
+            conn.execute(f"DELETE FROM cases WHERE id IN ({ph})", made)
+            conn.commit()
+
+    print(f"    webhook receiver got {len(received)} real POST(s) on 127.0.0.1:8791")
+    return checks
+
+
 def self_test():
     print("=== Case manager self-test ===\n")
     conn = connect()
@@ -530,6 +874,8 @@ def self_test():
         rejected = True
     checks.append(("close with an invalid disposition is rejected", rejected))
 
+    checks.extend(sla_self_test(conn))
+
     print()
     for label, ok in checks:
         print(f"  [{'PASS' if ok else 'FAIL'}] {label}")
@@ -574,15 +920,24 @@ def main():
     p.add_argument("--link", nargs="+", metavar=("CASE_ID", "EVENT_ID"),
                    help="Link event IDs to a case: --link CASE_ID EVENT_ID [EVENT_ID ...]")
     p.add_argument("--stats", action="store_true", help="Status/disposition breakdown and MTTC")
+    p.add_argument("--sla", action="store_true",
+                   help="SLA status per case, plus mean time to acknowledge")
+    p.add_argument("--check-sla", action="store_true",
+                   help="Find breaches and route notifications (idempotent — safe on a timer)")
+    p.add_argument("--ack", nargs="+", metavar=("ID", "WHO"),
+                   help="Acknowledge a case: --ack ID [WHO]")
+    p.add_argument("--policy", metavar="PATH", help="Alternate SLA policy file")
     args = p.parse_args()
 
     if args.self_test:
         return self_test()
 
     if not any([args.auto_triage, args.list, args.show, args.open, args.assign,
-                args.set_status, args.close, args.link, args.stats]):
+                args.set_status, args.close, args.link, args.stats,
+                args.sla, args.check_sla, args.ack]):
         p.error("pass one of --self-test, --auto-triage, --list, --show, --open, "
-                "--assign, --set-status, --close, --link, --stats")
+                "--assign, --set-status, --close, --link, --stats, --sla, "
+                "--check-sla, --ack ID")
 
     conn = connect(create_ok=False)
     init_db(conn)
@@ -619,6 +974,25 @@ def main():
         cmd_show(conn, args.show)
     if args.stats:
         cmd_stats(conn)
+    if args.ack:
+        cid = int(args.ack[0])
+        who = args.ack[1] if len(args.ack) > 1 else None
+        first = acknowledge_case(conn, cid, who)
+        print(f"Case #{cid} {'acknowledged' if first else 'was already acknowledged'}"
+              f"{' by ' + who if who and first else ''}")
+    if args.sla or args.check_sla:
+        policy, warning = load_policy(args.policy)
+        if warning:
+            print(f"  ({warning})\n")
+        if args.sla:
+            cmd_sla(conn, policy)
+        if args.check_sla:
+            fired = check_sla(conn, policy)
+            if not fired:
+                print("No new SLA breaches. (Already-notified breaches are not "
+                      "re-sent — this is safe to run on a timer.)")
+            else:
+                print(f"\n{len(fired)} new breach notification(s) sent.")
 
     conn.close()
     return 0
