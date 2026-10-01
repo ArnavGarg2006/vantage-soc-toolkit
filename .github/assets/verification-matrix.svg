@@ -1,0 +1,282 @@
+<svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="vmBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="vmGlow" x="-90%" y="-90%" width="280%" height="280%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="400" rx="18" fill="url(#vmBg)"/>
+
+  <text x="450" y="32" font-size="14" fill="#a7a9be" text-anchor="middle">python verify_all.py — every module in the project, run for real, one command</text>
+  <text x="450" y="51" font-size="11" fill="#6f6d8c" text-anchor="middle">33 modules on Linux / Python 3.11.15 — blocked is never counted as passing</text>
+
+  <g font-size="9" fill="#6f6d8c">
+    <rect x="48" y="96" width="10" height="10" rx="2" fill="#13241c" stroke="#2cb67d"/>
+    <text x="64" y="105">ran and reported success</text>
+    <rect x="212" y="96" width="10" height="10" rx="2" fill="#2b2010" stroke="#8a6d3b"/>
+    <text x="228" y="105">could not run here — reason named, not counted as a pass</text>
+    <rect x="560" y="96" width="10" height="10" rx="2" fill="#2a1216" stroke="#ff5c5c"/>
+    <text x="576" y="105">ran and reported failure</text>
+  </g>
+
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.0550;0.0641;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="48" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="82" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">yara_scann…</text>
+    <text x="82" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.0671;0.0762;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="122" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="156" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">case_manag…</text>
+    <text x="156" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.0792;0.0883;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="196" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="230" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">playbook_r…</text>
+    <text x="230" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.0914;0.1005;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="270" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="304" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">collector</text>
+    <text x="304" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1035;0.1126;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="344" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="378" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">baseline_m…</text>
+    <text x="378" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1156;0.1247;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="418" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="452" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">masquerade…</text>
+    <text x="452" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1277;0.1368;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="492" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="526" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">honeytoken…</text>
+    <text x="526" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1398;0.1489;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="566" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="600" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">honeypot_l…</text>
+    <text x="600" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1520;0.1611;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="640" y="132" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="674" y="147" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">process_mo…</text>
+    <text x="674" y="159" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1641;0.1732;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="714" y="132" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="748" y="147" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">fs_watcher</text>
+    <text x="748" y="159" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1762;0.1853;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="788" y="132" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="822" y="147" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">prompt_inj…</text>
+    <text x="822" y="159" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.1883;0.1974;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="48" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="82" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">agent_base…</text>
+    <text x="82" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2005;0.2095;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="122" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="156" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">craft_pack…</text>
+    <text x="156" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2126;0.2217;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="196" y="176" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="230" y="191" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">arp_spoof_…</text>
+    <text x="230" y="203" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2247;0.2338;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="270" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="304" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">lan_attack…</text>
+    <text x="304" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2368;0.2459;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="344" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="378" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">ransomware…</text>
+    <text x="378" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2489;0.2580;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="418" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="452" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">exfil_demo</text>
+    <text x="452" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2611;0.2702;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="492" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="526" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">beacon_demo</text>
+    <text x="526" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2732;0.2823;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="566" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="600" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">collection…</text>
+    <text x="600" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2853;0.2944;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="640" y="176" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="674" y="191" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">credential…</text>
+    <text x="674" y="203" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.2974;0.3065;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="714" y="176" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="748" y="191" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">persistenc…</text>
+    <text x="748" y="203" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3095;0.3186;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="788" y="176" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="822" y="191" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">privesc_hu…</text>
+    <text x="822" y="203" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3217;0.3308;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="48" y="220" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="82" y="235" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">contain_di…</text>
+    <text x="82" y="247" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3338;0.3429;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="122" y="220" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="156" y="235" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">export_sig…</text>
+    <text x="156" y="247" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3459;0.3550;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="196" y="220" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="230" y="235" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">export_nav…</text>
+    <text x="230" y="247" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3580;0.3671;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="270" y="220" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="304" y="235" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">generate_r…</text>
+    <text x="304" y="247" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3702;0.3792;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="344" y="220" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="378" y="235" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">phishing_u…</text>
+    <text x="378" y="247" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3823;0.3914;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="418" y="220" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="452" y="235" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">local_disc…</text>
+    <text x="452" y="247" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.3944;0.4035;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="492" y="220" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="526" y="235" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">dns_recon</text>
+    <text x="526" y="247" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4065;0.4156;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="566" y="220" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="600" y="235" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">cert_trans…</text>
+    <text x="600" y="247" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4186;0.4277;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="640" y="220" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="674" y="235" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">domain_age…</text>
+    <text x="674" y="247" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4308;0.4398;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="714" y="220" width="68" height="34" rx="5" fill="#13241c" stroke="#2cb67d" stroke-width="1.1"/>
+    <text x="748" y="235" font-size="7.6" fill="#7ee8b8" text-anchor="middle" font-family="Consolas, Menlo, monospace">wireshark_…</text>
+    <text x="748" y="247" font-size="7.2" fill="#2cb67d" text-anchor="middle" letter-spacing="0.4">PASS</text>
+  </g>
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4429;0.4520;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="788" y="220" width="68" height="34" rx="5" fill="#2b2010" stroke="#8a6d3b" stroke-width="1.1"/>
+    <text x="822" y="235" font-size="7.6" fill="#c9a76a" text-anchor="middle" font-family="Consolas, Menlo, monospace">export_wir…</text>
+    <text x="822" y="247" font-size="7.2" fill="#8a6d3b" text-anchor="middle" letter-spacing="0.4">blocked</text>
+  </g>
+
+  <g text-anchor="middle" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">0<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0000;0.0040;0.0641;0.0681;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">1<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0641;0.0681;0.0762;0.0802;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">2<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0762;0.0802;0.0883;0.0923;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">3<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0883;0.0923;0.1005;0.1045;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">4<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1005;0.1045;0.1126;0.1166;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">5<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1126;0.1166;0.1247;0.1287;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">6<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1247;0.1287;0.1368;0.1408;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">7<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1368;0.1408;0.1489;0.1529;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">8<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1489;0.1529;0.1853;0.1893;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">9<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1853;0.1893;0.1974;0.2014;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">10<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1974;0.2014;0.2095;0.2135;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">11<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2095;0.2135;0.2338;0.2378;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">12<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2338;0.2378;0.2459;0.2499;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">13<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2459;0.2499;0.2580;0.2620;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">14<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2580;0.2620;0.2702;0.2742;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">15<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2702;0.2742;0.2823;0.2863;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">16<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2823;0.2863;0.2944;0.2984;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">17<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2944;0.2984;0.3429;0.3469;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">18<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3429;0.3469;0.3550;0.3590;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">19<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3550;0.3590;0.3792;0.3832;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">20<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3792;0.3832;0.3914;0.3954;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">21<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3914;0.3954;0.4398;0.4438;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="292" font-size="34" font-weight="bold" fill="#2cb67d" opacity="0">22<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4398;0.4438;0.9300;0.9340;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="210" y="310" font-size="10.5" fill="#a7a9be">passed</text>
+  </g>
+  <g text-anchor="middle" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+    <text x="420" y="292" font-size="34" font-weight="bold" fill="#ff5c5c" opacity="0">0<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0000;0.0040;0.9300;0.9340;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="420" y="310" font-size="10.5" fill="#a7a9be">failed</text>
+  </g>
+  <g text-anchor="middle" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">0<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.0000;0.0040;0.1611;0.1651;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">1<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1611;0.1651;0.1732;0.1772;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">2<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.1732;0.1772;0.2217;0.2257;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">3<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.2217;0.2257;0.3065;0.3105;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">4<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3065;0.3105;0.3186;0.3226;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">5<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3186;0.3226;0.3308;0.3348;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">6<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3308;0.3348;0.3671;0.3711;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">7<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.3671;0.3711;0.4035;0.4075;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">8<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4035;0.4075;0.4156;0.4196;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">9<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4156;0.4196;0.4277;0.4317;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">10<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4277;0.4317;0.4520;0.4560;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="292" font-size="34" font-weight="bold" fill="#c9a76a" opacity="0">11<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.4520;0.4560;0.9300;0.9340;1" dur="13.0s" repeatCount="indefinite"/></text>
+    <text x="630" y="310" font-size="10.5" fill="#a7a9be">blocked</text>
+  </g>
+
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.470;0.530;0.930;1" dur="13.0s" repeatCount="indefinite"/>
+    <rect x="48" y="326" width="804" height="52" rx="8" fill="#0d1a14" stroke="#2cb67d" stroke-width="1.2"/>
+    <circle cx="74" cy="352" r="5" fill="#2cb67d" filter="url(#vmGlow)">
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="92" y="347" font-size="12.5" fill="#e6edf3" font-weight="bold">22/22 of everything runnable on this platform passed — in 33.0s</text>
+    <text x="92" y="365" font-size="10" fill="#7ee8b8">The 11 blocked are Windows-only APIs, a missing external binary, or blocked egress — each one named in the output rather than folded into a greener total.</text>
+  </g>
+</svg>

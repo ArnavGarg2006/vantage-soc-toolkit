@@ -2,7 +2,7 @@
 
 # 🎯 Vantage SOC Toolkit
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1200&color=A78BFA&center=true&vCenter=true&width=650&lines=22+MITRE+ATT%26CK%2FShield+techniques%2C+each+verified+live.;Real+bugs+found+and+fixed%2C+not+papered+over.;One+event+bus%2C+one+dashboard%2C+15+detectors+wired+in.;Sandboxed%2C+reversible%2C+localhost-only+-+never+real+data.)](https://github.com/ArnavGarg2006/vantage-soc-toolkit)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1200&color=A78BFA&center=true&vCenter=true&width=680&lines=24+MITRE+ATT%26CK%2FShield+techniques%2C+each+verified+live.;Real+bugs+found+and+fixed%2C+not+papered+over.;One+event+bus%2C+22+detectors%2C+alerts+that+become+cases.;python+verify_all.py+-+22+passed%2C+0+failed%2C+nothing+hidden.;Sandboxed%2C+reversible%2C+localhost-only+-+never+real+data.)](https://github.com/ArnavGarg2006/vantage-soc-toolkit)
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
@@ -21,17 +21,25 @@ course, not a clone of its code. Every script here is real and independently ver
 <br>
 
 <div align="center">
-  <img src=".github/assets/dashboard-heartbeat.svg" alt="Animated diagram: an EKG-style waveform scrolling past a fixed 'now' playhead on the live event bus dashboard, with alert blips for persistence, C2 beaconing, and ransomware lighting up as they cross it" width="100%">
+  <img src=".github/assets/verification-matrix.svg" alt="Animated diagram: a grid of 33 module cells filling in one by one, green for passed and amber for blocked, with live counters ticking up to 22 passed, 0 failed, 11 blocked" width="100%">
   <br>
-  <sub>15 detector modules, one shared live dashboard — verified over real HTTP, not assumed.</sub>
+  <sub><b>One command runs the whole project and reports what actually happened.</b> 22 passed, 0 failed, 11 blocked — and <i>blocked is never counted as passing</i>.</sub>
 </div>
 
 <br>
 
 <div align="center">
-  <img src=".github/assets/tactic-radial.svg" alt="Animated diagram: a radial progress ring building up segment by segment around 8 ATT&CK/Shield tactic buckets, ending on a center readout of 22 techniques verified" width="100%">
+  <img src=".github/assets/dashboard-heartbeat.svg" alt="Animated diagram: an EKG-style waveform scrolling past a fixed 'now' playhead on the live event bus dashboard with alert blips lighting up as they cross it, above a four-stage strip showing an alert travelling from detector to bus to auto-triage to a closed case" width="100%">
   <br>
-  <sub>22 verified techniques spanning the full ATT&CK/Shield chain — every segment has a working, live-tested module.</sub>
+  <sub>22 detector modules, one shared bus — and since this phase, every alert on it has a lifecycle instead of just a row.</sub>
+</div>
+
+<br>
+
+<div align="center">
+  <img src=".github/assets/tactic-radial.svg" alt="Animated diagram: a radial progress ring building up segment by segment around 8 ATT&CK/Shield tactic buckets, ending on a center readout of 24 techniques verified, beside a panel listing the YARA, case-management and SOAR response layer" width="100%">
+  <br>
+  <sub>24 verified techniques spanning the full ATT&CK/Shield chain — plus a response layer on top of them, deliberately not counted as more techniques.</sub>
 </div>
 
 <br>
@@ -57,6 +65,101 @@ every module was built under:
   way**: contained to a throwaway scratch folder, localhost-only where networking is
   involved, and — for anything encryption/"impact"-flavored — always reversible, only
   ever touching files created by the demo itself.
+
+## Proof — one command, every module, honest accounting
+
+Everything below this line is a claim. [`verify_all.py`](verify_all.py) is how
+you check it without taking my word for anything:
+
+```bash
+pip install -r requirements.txt
+python verify_all.py              # run everything, print a report
+python verify_all.py --quick      # skip the slow network-dependent modules
+python verify_all.py --json       # machine-readable
+python verify_all.py --only soar  # one area at a time
+```
+
+This project has always claimed "verified live, not assumed," and until this
+harness existed that claim lived in README prose describing runs nobody else
+could reproduce. The difference between a README that *says* the modules work
+and a command that *demonstrates* it is the whole point.
+
+### The three verdicts, and why they stay separate
+
+| Verdict | Meaning |
+|---|---|
+| **PASS** | The module ran and reported success by its own criteria |
+| **FAIL** | The module ran and reported failure — a real bug, never a skip |
+| **BLOCKED** | It could not run here, with the **specific** missing requirement named: a Windows API, an external binary, admin rights, or outbound network |
+
+**BLOCKED is never counted as success.** Collapsing it into either of the other
+two is exactly how coverage numbers become dishonest. A large part of this
+project is Windows-only by design (`winreg`, `pywin32`, `netsh`, `arp`,
+`powershell`), so on Linux a substantial share legitimately cannot execute — and
+the harness prints precisely which parts and why, rather than quietly reporting
+a smaller, greener total. Run it on Windows and those same rows become real
+PASS/FAIL results.
+
+### Current numbers
+
+Last full run — **Linux, Python 3.11.15, 33 modules, 33.0s**:
+
+| | Count |
+|---|---|
+| **Passed** | **22** |
+| **Failed** | **0** |
+| Blocked — Windows-only API | 6 |
+| Blocked — outbound network | 3 |
+| Blocked — missing binary (`arp`, `tshark`) | 2 |
+| **Total modules** | **33** |
+
+**22/22 of everything runnable on this platform passed (100%).** The 11 blocked
+are itemized individually in the output, never aggregated away.
+
+| Also verified | Count |
+|---|---|
+| Detector modules wired to the event bus | 22 |
+| ATT&CK techniques in the Navigator layer | 24 |
+| YARA rules (each vs. a true positive **and** a benign control) | 5 |
+| Sigma rules (round-trip validated) | 3 |
+| SOAR playbooks | 3 |
+| Self-test assertions in the three newest modules | 21 |
+
+### What this harness does *not* prove
+
+Stated plainly, because a verification tool that oversells itself is worse than
+none:
+
+- **It is not a unit-test suite.** Each check runs the module's own `--self-test`
+  or `--demo` — the same thing a human would run by hand. The harness adds
+  reproducibility and honest accounting, not a new notion of correctness.
+- **A module's self-test is only as good as its assertions.** `honeytoken_watcher`
+  passed its own self-test on Windows for weeks while being fundamentally broken
+  (see below) — the test was real, the assertion just happened to be satisfied by
+  timing luck.
+- **Blocked rows are genuinely unverified here.** 11 of 33 modules have not been
+  run in the environment these numbers come from. That is why they are counted
+  separately and why the Windows-only ones are named.
+
+### A bug this found, worth stating on its own
+
+Running the suite on a second platform caught a real defect in
+`shield-legitimize/honeytoken_watcher.py`. Its watch loop reassigned the process
+baseline on every poll iteration, so each new PID was inspected exactly once —
+during the single 0.1s tick in which it first appeared. That is almost always
+too early: a process has to finish starting before it opens anything, and a real
+attacker's process reads a credential file some time *after* it spawns, not
+within the same 100ms.
+
+**The detector was missing essentially every access it was built to catch**, and
+only ever passed because process-startup timing on Windows happened to land
+inside a poll tick. On Linux the timing stopped being kind and it failed
+outright. Fixed so the baseline stays fixed and every new PID stays under
+observation for the whole window; verified across three consecutive runs.
+
+That is the argument for this harness in one example: the bug was not found by
+reading the code, and not by the self-test that already existed. It was found by
+running everything, somewhere else.
 
 ## Phase 1 — built and verified
 
@@ -341,6 +444,12 @@ both logged, 1/1 connections caught.
 **Navigator export**: re-ran with all 9 new techniques added — now **22 techniques**
 mapped (was 13), JSON round-trip validated.
 
+> Since this run the layer has grown to **24 techniques** — the generated
+> `attack_navigator_layer.json` is the authoritative count, and it had drifted
+> ahead of this prose until a later pass caught it. Left the original figure
+> here rather than silently editing it: this section records what one specific
+> run produced, and a number that was true then is not made false by later work.
+
 ## Usage — Phase 4
 
 ```bash
@@ -380,7 +489,8 @@ was catching at once. That's the specific gap Phase 5 closes, one piece at a tim
 | [`event_bus_client.py`](event_bus_client.py) | The shared `emit(source, technique_id, severity, message)` client every detector imports. Lives at the project root (not inside `event-bus/`) specifically because a hyphenated directory name can't be `import`ed as a package — the same constraint the scorecard already worked around with `importlib.util` for the Phase 2 modules. Fails silently in ~0.4s if no collector is running: this is strictly additive telemetry, never a dependency of the detection logic itself |
 | [`event-bus/query_history.py`](event-bus/query_history.py) | The analysis half of the durable store — a read-only CLI answering questions a live dashboard can't: which technique fires most on this machine, how many HIGH alerts happened this week, the day-by-day trend |
 
-**15 detector modules wired in** at their actual alert points — every module from
+**15 detector modules wired in** at their actual alert points (since grown to
+**22** — `grep -rl "from event_bus_client import emit"` is the live count) — every module from
 Phase 1 through Phase 4 that produces a real finding: `process_monitor`,
 `credential_access_demo`, `beacon_demo`, `ransomware_sim`, `persistence_demo`,
 `privesc_hunter`, `masquerade_detector`, `lan_attack_surface`, `domain_age_checker`,
@@ -861,6 +971,17 @@ python reconnaissance/cert_transparency.py example.com
 - Chain A's exfiltration-detection gap (harvested credentials don't match the
   DLP's card/SSN patterns) is a real, open finding, not yet fixed — it's
   exactly the kind of thing this project surfaces rather than hides.
+- **11 of 33 modules have never been verified in the environment the headline
+  numbers come from.** Six are Windows-only, three need outbound network, two
+  need a binary (`arp`, `tshark`) that wasn't present. They are counted as
+  BLOCKED, not as passing, and `verify_all.py` names each one — but "blocked"
+  is still "unverified here", and running the harness on Windows is what
+  actually closes it.
+- `honeytoken_watcher` passed its own self-test for a long time while being
+  fundamentally broken (see the Proof section). That is a standing reason to
+  distrust a green self-test that has only ever run in one environment —
+  there may be more of these, and the only way to find them is to keep
+  running everything somewhere new.
 - Everything else on the original ATT&CK/Shield list has at least one working,
   verified module now, and the event bus gives all of Phase 5 one shared,
   live-verified dashboard whose history now genuinely survives a restart
@@ -1052,6 +1173,14 @@ artifacts this repo's own demos actually produce, including a real
 AES-256 EAX blob built with the identical construction
 `impact/ransomware_sim.py` uses.
 
+<div align="center">
+  <img src=".github/assets/yara-verification.svg" alt="Animated diagram: five sample files each connecting to the YARA rule that matched it, all marked PASS, then a benign control file below a divider connecting to nothing and also marked PASS, with a summary bar reading 5 true positives matched, 1 benign control stayed clean, 0 false positives" width="100%">
+  <br>
+  <sub>The control row is the point. Five rules matching their true positive proves the rules fire; the sixth row proves they don't fire on everything.</sub>
+</div>
+
+<br>
+
 #### Verified output — YARA
 
 `python dfir/yara_scanner.py --self-test`, yara-python 4.5.4:
@@ -1097,6 +1226,14 @@ are legitimately high-entropy. It's scoped to small files, reported at
 MEDIUM, and the scanner prints that caveat inline every time it fires.
 
 ### Case management — the lifecycle the event bus never had
+
+<div align="center">
+  <img src=".github/assets/case-correlation.svg" alt="Animated diagram: a before-and-after split. On the left, four alerts each wired to their own separate case. On the right, the same four alerts converging on a single case holding all four events, with footer notes on severity escalation, required dispositions and idempotency" width="100%">
+  <br>
+  <sub>A design gap found by running the SOAR runner and <code>--auto-triage</code> over the same live events — they disagreed about what an incident is.</sub>
+</div>
+
+<br>
 
 After Phase 5, every detector could emit an alert, every alert landed in
 one dashboard, and the history survived a restart. But **an alert is not
@@ -1160,6 +1297,14 @@ cases that actually contain a marker event, and the test passes
 repeatedly against a database full of real history.
 
 ### SOAR — closing a gap this README had listed as open
+
+<div align="center">
+  <img src=".github/assets/soar-pipeline.svg" alt="Animated diagram: a four-stage pipeline following one real alert. A HIGH ransomware alert arrives on the bus, trigger matching selects one of three playbooks, two actions run (indicator extraction then a YARA scan returning two rule matches), and a case is opened with zero humans involved" width="100%">
+  <br>
+  <sub>A <i>behavioural</i> alert automatically triggering a <i>file-level</i> confirmation, with both findings attached to one case — replayed from a real run.</sub>
+</div>
+
+<br>
 
 The previous version of this README listed as still-queued: *"an
 IOC-enrichment pipeline chaining `domain_age_checker.py` and
@@ -1261,6 +1406,9 @@ a HIGH alert doesn't become MEDIUM because a quieter one joined it.
 
 ```bash
 pip install -r requirements.txt        # now includes yara-python
+
+# --- verify the whole project first ---
+python verify_all.py                   # 22 passed / 0 failed / 11 blocked on Linux
 
 # --- YARA ---
 python dfir/yara_scanner.py --self-test
