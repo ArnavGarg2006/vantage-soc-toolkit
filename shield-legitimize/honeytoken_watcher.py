@@ -48,15 +48,42 @@ def deploy_honeytoken():
 
 
 def watch_for_access(duration, known_pids):
-    """Only checks PIDs that are NEW since `known_pids` - the same
-    diff-based efficiency fix used in credential_access_demo.py, so this
-    scales fine even though a full-system scan would not."""
+    """Watches every process that appeared after `known_pids` was taken,
+    and keeps watching it for the whole window.
+
+    The diff-against-baseline trick is the efficiency fix from
+    credential_access_demo.py (a full psutil.process_iter() scan with
+    open_files() on ~300 processes measured at ~12.7s per pass — far too
+    slow to catch a short file access). What matters is WHICH set gets
+    diffed.
+
+    An earlier version reassigned the baseline to the current process
+    list on every iteration, so each new PID was inspected exactly once —
+    during the single 0.1s tick in which it first appeared. That is
+    almost always too early: a process has to finish starting before it
+    opens anything, and a real attacker's process reads a credential file
+    some time after it spawns, not within the same 100ms. The detector
+    therefore missed essentially every access it was built to catch, and
+    only ever "passed" when process startup happened to land inside one
+    poll tick. Caught by running the self-test on a second platform,
+    where the timing stopped being kind.
+
+    The fix: the baseline stays fixed, and `watched` accumulates every
+    PID that has appeared since. Each poll re-checks all of them, so an
+    access is caught whenever it happens inside the window rather than
+    only at the instant of spawn."""
     end = time.time() + duration
     caught = False
+    watched = set()
     while time.time() < end and not caught:
         current = {p.pid for p in psutil.process_iter()}
-        new_pids = current - known_pids
-        for pid in new_pids:
+        # Baseline is NEVER reassigned — every PID new since the start
+        # stays under observation until the window closes.
+        watched |= (current - known_pids)
+        for pid in list(watched):
+            if pid not in current:
+                watched.discard(pid)  # exited; stop looking at it
+                continue
             try:
                 p = psutil.Process(pid)
                 for f in p.open_files():
@@ -65,9 +92,9 @@ def watch_for_access(duration, known_pids):
                         print(f"  ⚠️  CRITICAL: {msg}")
                         emit(source="honeytoken_watcher", technique_id="DTE0013", severity="HIGH", message=msg)
                         caught = True
+                        break
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
-        known_pids = current
         if not caught:
             time.sleep(0.1)
     return caught

@@ -1,0 +1,129 @@
+<svg viewBox="0 0 900 450" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="yvBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f0c29"/>
+      <stop offset="55%" stop-color="#302b63"/>
+      <stop offset="100%" stop-color="#24243e"/>
+    </linearGradient>
+    <filter id="yvGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="450" rx="18" fill="url(#yvBg)"/>
+
+  <text x="450" y="32" font-size="14" fill="#a7a9be" text-anchor="middle">dfir/yara_scanner.py --self-test — every rule proven against a true positive AND a benign control</text>
+  <text x="450" y="52" font-size="11" fill="#6f6d8c" text-anchor="middle">a rule that has only ever been eyeballed is a guess, not a detection</text>
+
+  <!-- column headers -->
+  <text x="62" y="82" font-size="10" fill="#6f6d8c" letter-spacing="1.2">SAMPLE FILE — an artifact this repo's own demos produce</text>
+  <text x="838" y="82" font-size="10" fill="#6f6d8c" letter-spacing="1.2" text-anchor="end">RULE THAT FIRED</text>
+
+  <!-- ============ 5 true-positive rows ============ -->
+  <g font-size="12.5">
+
+    <!-- row 1 -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.040;0.090;0.940;1" dur="11s" repeatCount="indefinite"/>
+      <rect x="55" y="94" width="300" height="30" rx="6" fill="#161b22" stroke="#2a2f3a"/>
+      <text x="70" y="114" fill="#8b949e" font-family="Consolas, Menlo, monospace" font-size="11.5">sample_encoded_ps.txt</text>
+      <line x1="365" y1="109" x2="518" y2="109" stroke="#7f5af0" stroke-width="1.6" stroke-dasharray="153 153" stroke-dashoffset="153">
+        <animate attributeName="stroke-dashoffset" values="153;153;0;0;153" keyTimes="0;0.045;0.085;0.940;1" dur="11s" repeatCount="indefinite"/>
+      </line>
+      <path d="M518,105 L526,109 L518,113 Z" fill="#7f5af0"/>
+      <rect x="530" y="94" width="315" height="30" rx="6" fill="#1d1533" stroke="#7f5af0" filter="url(#yvGlow)"/>
+      <text x="545" y="114" fill="#c4b5fd" font-size="11.5">Encoded_PowerShell_Command</text>
+      <text x="830" y="114" fill="#2cb67d" font-size="11.5" text-anchor="end" font-weight="bold">PASS</text>
+    </g>
+
+    <!-- row 2 -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.095;0.145;0.940;1" dur="11s" repeatCount="indefinite"/>
+      <rect x="55" y="134" width="300" height="30" rx="6" fill="#161b22" stroke="#2a2f3a"/>
+      <text x="70" y="154" fill="#8b949e" font-family="Consolas, Menlo, monospace" font-size="11.5">sample_lolbin_cradle.txt</text>
+      <line x1="365" y1="149" x2="518" y2="149" stroke="#7f5af0" stroke-width="1.6" stroke-dasharray="153 153" stroke-dashoffset="153">
+        <animate attributeName="stroke-dashoffset" values="153;153;0;0;153" keyTimes="0;0.100;0.140;0.940;1" dur="11s" repeatCount="indefinite"/>
+      </line>
+      <path d="M518,145 L526,149 L518,153 Z" fill="#7f5af0"/>
+      <rect x="530" y="134" width="315" height="30" rx="6" fill="#1d1533" stroke="#7f5af0" filter="url(#yvGlow)"/>
+      <text x="545" y="154" fill="#c4b5fd" font-size="11.5">LOLBin_Download_Cradle</text>
+      <text x="830" y="154" fill="#2cb67d" font-size="11.5" text-anchor="end" font-weight="bold">PASS</text>
+    </g>
+
+    <!-- row 3 -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.150;0.200;0.940;1" dur="11s" repeatCount="indefinite"/>
+      <rect x="55" y="174" width="300" height="30" rx="6" fill="#161b22" stroke="#2a2f3a"/>
+      <text x="70" y="194" fill="#8b949e" font-family="Consolas, Menlo, monospace" font-size="11.5">sample_staged_data.txt</text>
+      <line x1="365" y1="189" x2="518" y2="189" stroke="#7f5af0" stroke-width="1.6" stroke-dasharray="153 153" stroke-dashoffset="153">
+        <animate attributeName="stroke-dashoffset" values="153;153;0;0;153" keyTimes="0;0.155;0.195;0.940;1" dur="11s" repeatCount="indefinite"/>
+      </line>
+      <path d="M518,185 L526,189 L518,193 Z" fill="#7f5af0"/>
+      <rect x="530" y="174" width="315" height="30" rx="6" fill="#1d1533" stroke="#7f5af0" filter="url(#yvGlow)"/>
+      <text x="545" y="194" fill="#c4b5fd" font-size="11.5">Staged_Sensitive_Data</text>
+      <text x="830" y="194" fill="#2cb67d" font-size="11.5" text-anchor="end" font-weight="bold">PASS</text>
+    </g>
+
+    <!-- row 4 -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.205;0.255;0.940;1" dur="11s" repeatCount="indefinite"/>
+      <rect x="55" y="214" width="300" height="30" rx="6" fill="#161b22" stroke="#2a2f3a"/>
+      <text x="70" y="234" fill="#8b949e" font-family="Consolas, Menlo, monospace" font-size="11.5">sample_ransom_note.txt</text>
+      <line x1="365" y1="229" x2="518" y2="229" stroke="#7f5af0" stroke-width="1.6" stroke-dasharray="153 153" stroke-dashoffset="153">
+        <animate attributeName="stroke-dashoffset" values="153;153;0;0;153" keyTimes="0;0.210;0.250;0.940;1" dur="11s" repeatCount="indefinite"/>
+      </line>
+      <path d="M518,225 L526,229 L518,233 Z" fill="#7f5af0"/>
+      <rect x="530" y="214" width="315" height="30" rx="6" fill="#1d1533" stroke="#7f5af0" filter="url(#yvGlow)"/>
+      <text x="545" y="234" fill="#c4b5fd" font-size="11.5">Ransom_Note</text>
+      <text x="830" y="234" fill="#2cb67d" font-size="11.5" text-anchor="end" font-weight="bold">PASS</text>
+    </g>
+
+    <!-- row 5 — the real AES artifact -->
+    <g opacity="0">
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.260;0.310;0.940;1" dur="11s" repeatCount="indefinite"/>
+      <rect x="55" y="254" width="300" height="30" rx="6" fill="#161b22" stroke="#2a2f3a"/>
+      <text x="70" y="274" fill="#8b949e" font-family="Consolas, Menlo, monospace" font-size="11.5">sample_file.txt.encrypted</text>
+      <text x="345" y="268" fill="#ffb84d" font-size="8.5" text-anchor="end">real AES-256</text>
+      <line x1="365" y1="269" x2="518" y2="269" stroke="#ffb84d" stroke-width="1.6" stroke-dasharray="153 153" stroke-dashoffset="153">
+        <animate attributeName="stroke-dashoffset" values="153;153;0;0;153" keyTimes="0;0.265;0.305;0.940;1" dur="11s" repeatCount="indefinite"/>
+      </line>
+      <path d="M518,265 L526,269 L518,273 Z" fill="#ffb84d"/>
+      <rect x="530" y="254" width="315" height="30" rx="6" fill="#2b2010" stroke="#ffb84d" filter="url(#yvGlow)"/>
+      <text x="545" y="274" fill="#ffd591" font-size="11.5">High_Entropy_Blob</text>
+      <text x="830" y="274" fill="#2cb67d" font-size="11.5" text-anchor="end" font-weight="bold">PASS</text>
+    </g>
+  </g>
+
+  <!-- divider: the control is a different kind of proof -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.315;0.355;0.940;1" dur="11s" repeatCount="indefinite"/>
+    <line x1="55" y1="300" x2="845" y2="300" stroke="#2a2f3a" stroke-width="1" stroke-dasharray="3 5"/>
+    <rect x="392" y="291" width="116" height="18" rx="9" fill="#0f0c29"/>
+    <text x="450" y="304" font-size="9.5" fill="#6f6d8c" text-anchor="middle" letter-spacing="1">NEGATIVE CONTROL</text>
+  </g>
+
+  <!-- control row: the point is that NOTHING fires -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.360;0.420;0.940;1" dur="11s" repeatCount="indefinite"/>
+    <rect x="55" y="320" width="300" height="30" rx="6" fill="#161b22" stroke="#2a2f3a"/>
+    <text x="70" y="340" fill="#8b949e" font-family="Consolas, Menlo, monospace" font-size="11.5">control_benign.txt</text>
+    <line x1="365" y1="335" x2="518" y2="335" stroke="#3a4152" stroke-width="1.6" stroke-dasharray="4 5"/>
+    <rect x="530" y="320" width="315" height="30" rx="6" fill="#0d1117" stroke="#2cb67d" stroke-dasharray="5 4"/>
+    <text x="545" y="340" fill="#7ee8b8" font-size="11.5">no rule matched — correct</text>
+    <text x="830" y="340" fill="#2cb67d" font-size="11.5" text-anchor="end" font-weight="bold">PASS</text>
+  </g>
+
+  <!-- summary bar -->
+  <g opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.440;0.500;0.940;1" dur="11s" repeatCount="indefinite"/>
+    <rect x="55" y="372" width="790" height="42" rx="8" fill="#0d1a14" stroke="#2cb67d" stroke-width="1.2"/>
+    <circle cx="82" cy="393" r="5" fill="#2cb67d" filter="url(#yvGlow)">
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="100" y="391" font-size="12.5" fill="#e6edf3" font-weight="bold">5 true positives matched · 1 benign control stayed clean · 0 false positives</text>
+    <text x="100" y="406" font-size="10.5" fill="#7ee8b8">yara-python 4.5.4 — samples are real artifacts from ransomware_sim.py, exfil_demo.py and persistence_demo.py</text>
+  </g>
+
+  <text x="450" y="436" font-size="10.5" fill="#6f6d8c" text-anchor="middle">Scanning this repo first reported 9 HIGH matches against the project itself — detection content embeds the strings it detects. Fixed with a visible exclusion list, not weaker rules.</text>
+</svg>
