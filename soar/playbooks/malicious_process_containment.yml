@@ -1,0 +1,40 @@
+name: malicious-process-containment
+description: >
+  When a detector flags a process as malicious AND names its PID, suspend
+  that process so it stops doing damage while an analyst looks at it.
+  SUSPEND, never KILL — a suspended process keeps its memory, open handles
+  and network state for the investigation; a killed one has destroyed the
+  evidence. soar/containment.py --undo-all reverses everything this does.
+
+  This playbook is a DRY RUN unless playbook_runner.py is given --arm. Read
+  the safety reasoning in soar/containment.py before arming it: alert
+  content is attacker-influenceable, so acting automatically on a target
+  named in an alert is a denial-of-service primitive pointed at your own
+  estate unless it is constrained.
+
+trigger:
+  technique_id: T1059
+  min_severity: HIGH
+
+# The constraint that makes automated containment defensible: decide in
+# advance what may be contained, rather than letting the alert decide at
+# runtime. Nothing outside this list is actioned even when armed.
+#
+# These are process names a detector in this project would legitimately flag
+# and that are safe to suspend. Deliberately narrow — widening it is a
+# decision someone should have to make on purpose.
+containment_allowlist:
+  - powershell
+  - cmd.exe
+  - wscript
+  - cscript
+  - mshta
+  - regsvr32
+  - rundll32
+  - certutil
+
+actions:
+  - extract_indicators
+  - yara_scan          # confirm on disk before acting on the process
+  - contain_process    # DRY RUN unless --arm
+  - open_case

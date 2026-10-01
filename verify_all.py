@@ -134,6 +134,10 @@ CHECKS = [
          args=["soar/playbook_runner.py", "--self-test"],
          ok=PASS_MARK, bad=FAIL_MARK, needs=["mod:yaml"],
          note="9 checks: trigger match, extraction, enrichment, correlation"),
+    dict(id="soar/containment", group="SOAR",
+         args=["soar/containment.py", "--self-test"],
+         ok=PASS_MARK, bad=FAIL_MARK, needs=["mod:psutil"],
+         note="9 checks: dry-run safety, arm, undo, self/PID-1/allowlist guards"),
 
     # ---- event bus ------------------------------------------------------
     dict(id="event-bus/collector", group="Event bus",

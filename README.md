@@ -1492,6 +1492,109 @@ confirm, not a verdict"* every time it finds something. Memory scanning
 trades precision for reach, and the output says so rather than implying a
 confidence it hasn't earned.
 
+### Closing the gaps — 2 of 4: containment, and the threat nobody advertises
+
+Everything in this project up to here *observes*.
+[`soar/containment.py`](soar/containment.py) is the first component that
+**acts**, which is why the safety logic lives in its own module with its own
+self-test rather than being folded into the playbook runner.
+
+#### The attack on your own SOAR
+
+A playbook that contains "the process named in the alert" is only as
+trustworthy as the alert — and **alert content is attacker-influenceable**. A
+filename, a process name, a URL in a request: these originate outside the
+host's trust boundary. An attacker who can get a string into an alert can
+make an auto-containment system act on a target of their choosing.
+
+That turns your SOAR into a **denial-of-service primitive aimed at your own
+estate, triggered on demand.** It is the part that doesn't appear in the
+product brochure, and it drove every design decision here:
+
+| Control | Why |
+|---|---|
+| **Dry run by default** | A plan is always produced and shown; executing it is a separate decision requiring `--arm` |
+| **A protected set that cannot be overridden** | PID 1, kernel threads, this process and its ancestors, and names whose death takes the box down. **No flag disables it** — a safety switch grows a user who sets it permanently |
+| **Optional allowlist** | Decide in advance what may be contained, not at alert time. The shipped playbook has one |
+| **Reversible first** | `SUSPEND`, never `KILL`, as the default. A suspended process keeps its memory, handles and network state for the investigation; a killed one has destroyed the evidence |
+| **A journal** | Every action — including refusals and dry runs — recorded in the same SQLite store as events and cases, so `--undo` works and a case carries its own audit trail |
+| **Network blocking confined to TEST-NET-3** | RFC 5737 `203.0.113.0/24` only. Firewalling an arbitrary address from an alert is the same DoS primitive, pointed at the network |
+
+#### A design error the self-test caught
+
+The first version of the never-contain list also included
+`python`/`python3`/`bash`/`sh`, reasoning that "this project runs on those."
+The self-test spawned a Python victim and **the guard refused to contain
+it** — three checks failed.
+
+That list was wrong in both directions. **Over-broad:** on a Linux host a
+large share of everything is a Python or shell process, so containment
+refuses nearly every legitimate target and the feature is useless.
+**Under-protective:** an attacker's payload is very often a Python script or
+a shell, so the name carries no signal about whether containing it is safe.
+
+Protecting this tool from containing *itself* is a **PID problem, not a name
+problem** — and `protected_pids()` plus `ancestors_of_self()` already solved
+it precisely. The name list now covers only processes whose death is
+catastrophic, and the self-test asserts that distinction directly rather
+than trusting it.
+
+#### Verified output — containment, end to end on a live process
+
+```
+  [PASS] dry run leaves the process running untouched
+  [PASS] armed SUSPEND actually stops the process
+  [PASS] --undo resumes the suspended process
+  [PASS] refuses to contain its own process
+  [PASS] refuses to contain PID 1
+  [PASS] never-contain list covers catastrophic processes only
+  [PASS] allowlist mode refuses a non-matching target
+  [PASS] BLOCK_IP refuses a real address, allows only TEST-NET-3
+  [PASS] undo of a KILL says plainly that it cannot be reversed
+```
+
+And through the full playbook path against a real process, with the
+process state checked at each step rather than assumed:
+
+```
+### 1. DRY RUN (default)
+      contain_process   DRY RUN: would SUSPEND 754 (certutil) — nothing was done; pass --arm to act
+   state after dry run: S          <- still running, correct
+
+### 2. ARMED
+  *** ARMED *** containment will EXECUTE for: malicious-process-containment
+      contain_process   [#4] SUSPEND 754 (certutil) -> SUSPENDED (reversible — resume with --undo)
+   state after arm: T              <- T = stopped
+
+### 3. JOURNAL
+     4  ARMED    SUSPEND   754  certutil   SUSPENDED (reversible — resume with --undo)
+     3  dry-run  SUSPEND   754  certutil   DRY RUN: would have executed
+     2  dry-run  SUSPEND   750  bash       REFUSED: not in the allowlist
+     1  dry-run  SUSPEND   735  python3    REFUSED: not in the allowlist
+
+### 4. UNDO
+  action #4 reversed: resumed pid 754
+   state after undo: S             <- resumed
+```
+
+Note rows 1 and 2: **refusals are journalled too.** A containment system
+that silently declines is indistinguishable from one that is broken.
+
+```bash
+python soar/containment.py --self-test
+python soar/containment.py --list              # the journal
+python soar/containment.py --undo 4            # reverse one action
+python soar/containment.py --undo-all          # reverse everything still in effect
+
+python soar/playbook_runner.py --run-once            # containment is a DRY RUN
+python soar/playbook_runner.py --run-once --arm      # containment EXECUTES
+```
+
+**What it still doesn't do:** no network isolation of a whole host, no
+account disablement, no EDR-style kernel-level blocking. And `KILL` exists
+but no playbook ships with it — `SUSPEND` is the default precisely because
+termination destroys the evidence you were about to collect.
+
 ### Usage — YARA, cases, SOAR
 
 ```bash
@@ -1538,8 +1641,8 @@ Stated plainly so the section above isn't read as more than it is:
   no VirusTotal. Indicators are extracted and structurally analyzed with
   this project's own modules; none of them is checked against a reputation
   feed.
-- **No containment.** The SOAR runner deliberately has no quarantine,
-  kill-process or block-address action.
+- ~~**No containment.**~~ **Closed** — `contain_process` and `block_ip` are
+  real SOAR actions now, dry-run by default and gated behind `--arm`. See below.
 - ~~**YARA is on-disk only.**~~ **Closed** — `--scan-pid` and `--scan-processes`
   now scan live process memory via `rules.match(pid=...)`. See below.
 - **Case management is single-analyst and local.** No multi-user auth, no

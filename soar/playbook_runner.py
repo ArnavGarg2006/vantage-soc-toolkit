@@ -91,6 +91,10 @@ HASH_RE = re.compile(r"\b(?:[a-f0-9]{32}|[a-f0-9]{40}|[a-f0-9]{64})\b", re.I)
 # a real alert, not by reading the pattern. The lookbehind below anchors
 # on "not preceded by a path character" instead, which is what was meant.
 PATH_RE = re.compile(r"(?:[A-Za-z]:\\[^\s\"'<>]+|(?<![\w.-])/(?:[\w.-]+/)+[\w.-]*)")
+# Only an explicitly labelled PID counts. Harvesting every bare integer in an
+# alert and treating it as a containment target is how an automated responder
+# ends up suspending a process because a byte count happened to match a PID.
+PID_RE = re.compile(r"\bpid[\s:#=]*(\d{1,7})\b", re.I)
 
 NON_DOMAIN_SUFFIXES = {
     ".py", ".txt", ".exe", ".dll", ".log", ".json", ".yml", ".yaml", ".pcap",
@@ -213,6 +217,7 @@ def action_extract_indicators(ctx):
         "domains": sorted(domains),
         "hashes": sorted(set(h.lower() for h in HASH_RE.findall(text))),
         "paths": sorted(set(PATH_RE.findall(residual))),
+        "pids": sorted({int(x) for x in PID_RE.findall(text)}),
     }
     found = {k: v for k, v in ctx["indicators"].items() if v}
     if not found:
@@ -304,6 +309,64 @@ def action_yara_scan(ctx):
     return lines
 
 
+def action_contain_process(ctx):
+    """Suspend a process named in the alert — DRY RUN unless --arm.
+
+    Reversible by design: SUSPEND, not KILL. A suspended process keeps its
+    full state for the investigation that follows; a killed one has destroyed
+    the evidence you were about to collect.
+
+    The safety reasoning lives in soar/containment.py, including why acting
+    on a target named in an alert is a genuinely dangerous default — alert
+    content is attacker-influenceable, so an automated responder that trusts
+    it is a denial-of-service primitive aimed at your own estate.
+    """
+    pids = ctx["indicators"].get("pids", [])
+    if not pids:
+        return ["no PID in the alert to contain"]
+
+    cm = load_module("soar/containment.py")
+    psutil = cm.require_psutil()
+    conn = ctx["conn"]
+    cm.init_db(conn)
+
+    allowlist = ctx["playbook"].get("containment_allowlist")
+    lines = []
+    for pid in pids:
+        p = cm.plan(psutil, "SUSPEND", pid, allowlist=allowlist)
+        lines.append(cm.execute(conn, psutil, p, armed=ctx["armed"],
+                                case_id=ctx.get("case_id"),
+                                event_id=ctx["event"]["id"]))
+        if p["allowed"]:
+            ctx["max_severity"] = max(ctx["max_severity"], SEVERITY_ORDER["HIGH"])
+    return lines
+
+
+def action_block_ip(ctx):
+    """Firewall-block an address from the alert — DRY RUN unless --arm.
+
+    Scoped to RFC 5737 TEST-NET-3 only. A playbook that firewalls an
+    arbitrary address out of an alert is the same denial-of-service
+    primitive as process containment, pointed at the network instead.
+    """
+    ips = ctx["indicators"].get("ips", [])
+    if not ips:
+        return ["no IP in the alert to block"]
+
+    cm = load_module("soar/containment.py")
+    psutil = cm.require_psutil()
+    conn = ctx["conn"]
+    cm.init_db(conn)
+
+    lines = []
+    for ip in ips:
+        p = cm.plan(psutil, "BLOCK_IP", ip)
+        lines.append(cm.execute(conn, psutil, p, armed=ctx["armed"],
+                                case_id=ctx.get("case_id"),
+                                event_id=ctx["event"]["id"]))
+    return lines
+
+
 def action_open_case(ctx):
     cm = load_module("case-management/case_manager.py")
     conn = ctx["conn"]
@@ -346,8 +409,15 @@ ACTIONS = {
     "analyze_urls": action_analyze_urls,
     "check_domain_age": action_check_domain_age,
     "yara_scan": action_yara_scan,
+    "contain_process": action_contain_process,
+    "block_ip": action_block_ip,
     "open_case": action_open_case,
 }
+
+# Actions that change the state of the host rather than just describing it.
+# Kept as a named set so --list-playbooks can flag the playbooks that carry
+# one, and so the runner can say loudly whether it is armed.
+CONTAINMENT_ACTIONS = {"contain_process", "block_ip"}
 
 
 # --------------------------------------------------------------------------
@@ -368,12 +438,13 @@ def init_db(conn):
     conn.commit()
 
 
-def run_playbook(conn, playbook, event, offline=False, quiet=False):
+def run_playbook(conn, playbook, event, offline=False, quiet=False, armed=False):
     ctx = {
         "conn": conn,
         "event": event,
         "playbook": playbook,
         "offline": offline,
+        "armed": armed,
         "indicators": {},
         "log": [],
         "max_severity": SEVERITY_ORDER.get(str(event["severity"]).upper(), 0),
@@ -428,7 +499,7 @@ def pending_work(conn, playbooks, limit=200):
     return work
 
 
-def run_once(conn, playbooks, offline=False, quiet=False):
+def run_once(conn, playbooks, offline=False, quiet=False, armed=False):
     work = pending_work(conn, playbooks)
     if not work:
         if not quiet:
@@ -436,7 +507,7 @@ def run_once(conn, playbooks, offline=False, quiet=False):
                   "run through its playbook(s).")
         return 0
     for pb, ev in work:
-        run_playbook(conn, pb, ev, offline=offline, quiet=quiet)
+        run_playbook(conn, pb, ev, offline=offline, quiet=quiet, armed=armed)
     return len(work)
 
 
@@ -579,6 +650,10 @@ def main():
     p.add_argument("--interval", type=int, default=10, help="--watch poll interval (default 10s)")
     p.add_argument("--offline", action="store_true",
                    help="Skip network-dependent actions (WHOIS) and say so")
+    p.add_argument("--arm", action="store_true",
+                   help="Actually execute containment actions. WITHOUT THIS THEY "
+                        "ARE DRY RUNS: the plan is produced and journalled, but "
+                        "nothing on the host is touched.")
     args = p.parse_args()
 
     if args.self_test:
@@ -602,12 +677,27 @@ def main():
         print("Offline mode: network actions "
               f"({', '.join(sorted(NETWORK_ACTIONS))}) will be skipped.")
 
+    # Say the arming state loudly and unconditionally. Someone running this
+    # should never have to infer whether it is about to change the host.
+    containment_playbooks = [b["name"] for b in playbooks
+                             if CONTAINMENT_ACTIONS & set(b["actions"])]
+    if containment_playbooks:
+        if args.arm:
+            print(f"\n  *** ARMED *** containment will EXECUTE for: "
+                  f"{', '.join(containment_playbooks)}")
+            print("      Actions are journalled and reversible with "
+                  "soar/containment.py --undo-all")
+        else:
+            print(f"\n  DRY RUN: {len(containment_playbooks)} playbook(s) carry "
+                  f"containment actions ({', '.join(containment_playbooks)}).")
+            print("      Nothing on this host will be touched. Pass --arm to act.")
+
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     init_db(conn)
 
     if args.run_once:
-        n = run_once(conn, playbooks, offline=args.offline)
+        n = run_once(conn, playbooks, offline=args.offline, armed=args.arm)
         print(f"\n  {n} playbook run(s) completed.")
         conn.close()
         return 0
@@ -615,7 +705,8 @@ def main():
     print(f"\nWatching for new events every {args.interval}s (Ctrl+C to stop)...")
     try:
         while True:
-            run_once(conn, playbooks, offline=args.offline, quiet=False)
+            run_once(conn, playbooks, offline=args.offline, quiet=False,
+                     armed=args.arm)
             time.sleep(args.interval)
     except KeyboardInterrupt:
         print("\nStopped.")
