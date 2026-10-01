@@ -2,7 +2,7 @@
 
 # 🎯 Vantage SOC Toolkit
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1200&color=A78BFA&center=true&vCenter=true&width=680&lines=24+MITRE+ATT%26CK%2FShield+techniques%2C+each+verified+live.;Real+bugs+found+and+fixed%2C+not+papered+over.;One+event+bus%2C+22+detectors%2C+alerts+that+become+cases.;python+verify_all.py+-+22+passed%2C+0+failed%2C+nothing+hidden.;Sandboxed%2C+reversible%2C+localhost-only+-+never+real+data.)](https://github.com/ArnavGarg2006/vantage-soc-toolkit)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&size=18&pause=1200&color=A78BFA&center=true&vCenter=true&width=680&lines=24+MITRE+ATT%26CK%2FShield+techniques%2C+each+verified+live.;Real+bugs+found+and+fixed%2C+not+papered+over.;One+event+bus%2C+22+detectors%2C+alerts+that+become+cases.;python+verify_all.py+-+24+passed%2C+0+failed%2C+nothing+hidden.;Sandboxed%2C+reversible%2C+localhost-only+-+never+real+data.)](https://github.com/ArnavGarg2006/vantage-soc-toolkit)
 
 ![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)
 ![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
@@ -21,9 +21,9 @@ course, not a clone of its code. Every script here is real and independently ver
 <br>
 
 <div align="center">
-  <img src=".github/assets/verification-matrix.svg" alt="Animated diagram: a grid of 33 module cells filling in one by one, green for passed and amber for blocked, with live counters ticking up to 22 passed, 0 failed, 11 blocked" width="100%">
+  <img src=".github/assets/verification-matrix.svg" alt="Animated diagram: a grid of 35 module cells filling in one by one, green for passed and amber for blocked, with live counters ticking up to 24 passed, 0 failed, 11 blocked" width="100%">
   <br>
-  <sub><b>One command runs the whole project and reports what actually happened.</b> 22 passed, 0 failed, 11 blocked — and <i>blocked is never counted as passing</i>.</sub>
+  <sub><b>One command runs the whole project and reports what actually happened.</b> 24 passed, 0 failed, 11 blocked — and <i>blocked is never counted as passing</i>.</sub>
 </div>
 
 <br>
@@ -102,28 +102,29 @@ PASS/FAIL results.
 
 ### Current numbers
 
-Last full run — **Linux, Python 3.11.15, 33 modules, 33.0s**:
+Last full run — **Linux, Python 3.11.15, 35 modules, 35.2s**:
 
 | | Count |
 |---|---|
-| **Passed** | **22** |
+| **Passed** | **24** |
 | **Failed** | **0** |
 | Blocked — Windows-only API | 6 |
 | Blocked — outbound network | 3 |
 | Blocked — missing binary (`arp`, `tshark`) | 2 |
-| **Total modules** | **33** |
+| **Total modules** | **35** |
 
-**22/22 of everything runnable on this platform passed (100%).** The 11 blocked
+**24/24 of everything runnable on this platform passed (100%).** The 11 blocked
 are itemized individually in the output, never aggregated away.
 
 | Also verified | Count |
 |---|---|
 | Detector modules wired to the event bus | 22 |
 | ATT&CK techniques in the Navigator layer | 24 |
-| YARA rules (each vs. a true positive **and** a benign control) | 5 |
+| YARA rules — file-scoped (true positive **and** benign control each) | 5 |
+| YARA rules — memory-scoped (live process **and** control process each) | 2 |
 | Sigma rules (round-trip validated) | 3 |
-| SOAR playbooks | 3 |
-| Self-test assertions in the three newest modules | 21 |
+| SOAR playbooks | 4 |
+| Self-test assertions across the newest five modules | 58 |
 
 ### What this harness does *not* prove
 
@@ -1785,7 +1786,7 @@ python threat-intel/ioc_store.py --vt <hash|domain|ip>
 pip install -r requirements.txt        # now includes yara-python
 
 # --- verify the whole project first ---
-python verify_all.py                   # 22 passed / 0 failed / 11 blocked on Linux
+python verify_all.py                   # 24 passed / 0 failed / 11 blocked on Linux
 
 # --- YARA ---
 python dfir/yara_scanner.py --self-test
@@ -1817,22 +1818,52 @@ python soar/playbook_runner.py --run-once --offline  # local actions only
 python soar/playbook_runner.py --watch --interval 10
 ```
 
-### What these three do *not* do
+### What this still does *not* do
 
-Stated plainly so the section above isn't read as more than it is:
+An earlier version of this section listed four limits: on-disk-only YARA, no
+containment, no SLA timers or notification routing, and no threat-intel
+enrichment. **All four were closed** — each in its own subsection above, each
+with the bugs that closing it surfaced.
 
-- **No MISP or OpenCTI *integration*** — still true, and still deliberate:
-  there is no instance to verify against. ~~No reputation feed at all.~~
-  **Partly closed** — `threat-intel/ioc_store.py` speaks the MISP *event
-  format*, so any MISP export or feed file can be ingested and matched
-  against alerts. VirusTotal is implemented but is the one component never
-  verified against the live service here. See below.
-- ~~**No containment.**~~ **Closed** — `contain_process` and `block_ip` are
-  real SOAR actions now, dry-run by default and gated behind `--arm`. See below.
-- ~~**YARA is on-disk only.**~~ **Closed** — `--scan-pid` and `--scan-processes`
-  now scan live process memory via `rules.match(pid=...)`. See below.
-- **Case management has no multi-user auth** — a deliberate non-goal, not a
-  gap. ~~No SLA timers, no notification routing.~~ **Both closed** — see
-  below. Assignees remain free-text labels rather than accounts: building
-  auth would mean storing credentials, and a portfolio security repo has
-  nowhere safe to put them.
+This is the list as it stands now. It is shorter, and it is still real.
+
+**Deliberate non-goals, not unfinished work:**
+
+- **No MISP, OpenCTI, TheHive or XSOAR *integration*.** The IOC store speaks
+  the MISP event *format*; it does not talk to a MISP *server*. Case
+  management and SOAR implement the functions TheHive and XSOAR perform;
+  they are not integrations with either. There is no instance behind this
+  repo to verify an API client against, and that remains the reason.
+- **No multi-user authentication.** Assignees are free-text labels, not
+  accounts. Building auth means storing credentials, and a portfolio
+  security repo has nowhere safe to put them.
+- **No containment beyond process and TEST-NET scope.** No host network
+  isolation, no account disablement, no EDR-style kernel-level blocking.
+  `KILL` exists but no shipped playbook uses it — `SUSPEND` is the default
+  because termination destroys the evidence you were about to collect.
+- **No email, SMS or pager notification.** Each needs a credential with
+  nowhere safe to live. `event_bus`, `stdout` and `webhook` are the sinks.
+
+**Genuine limits of what is built:**
+
+- **Memory scanning is on-demand, not continuous.** `--scan-processes` is a
+  point-in-time sweep. There is no hooking, no notification on process
+  creation, and a process that starts and exits between sweeps is never
+  seen. That needs kernel-level instrumentation and elevation — the same
+  boundary `fs_watcher.py --try-kernel-trace` documents.
+- **VirusTotal has never been run against the live service here.** The code
+  path is verified against a local server mimicking its response shape.
+  Egress is blocked in the environment this was built in, and VT needs an
+  API key on top of that.
+- **Memory rules trade precision for reach.** A real sweep in this container
+  produced a false positive on a tooling process that had handled this
+  project's own README text. That is documented above rather than tuned
+  away, and it is why every memory hit prints *"a lead to confirm, not a
+  verdict."*
+- **Still not an EDR.** No kernel hooks without elevation, and the detectors
+  do not run as background services — the event history persists, the
+  detectors do not. A deliberate scope boundary for a portfolio project.
+- **11 of 35 modules are unverified in the environment these numbers come
+  from.** Six are Windows-only, three need egress, two need a binary that
+  wasn't present. They are counted as BLOCKED, never as passing, and
+  `verify_all.py` names each one — but blocked is still unverified.
